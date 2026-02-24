@@ -1,732 +1,541 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wachstums-Profi</title>
-    
+    <title>sMArTHEMATIK - Beratung digitale Bildung</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
+        .page-transition { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes flyInStayFade { 0% { transform: scale(0.2) translateY(50vh); opacity: 0; } 15%, 75% { transform: scale(1) translateY(0); opacity: 1; } 100% { transform: scale(1.5) translateY(-30vh); opacity: 0; } }
+        .animate-fly-logo { animation: flyInStayFade 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         body { background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #f1f1f1; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .font-math { font-family: 'Times New Roman', Times, serif; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
-
+<body class="text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+    <div id="root" class="flex flex-col min-h-screen"></div>
     <script type="text/babel" data-presets="typescript,react">
         const { useState, useEffect } = React;
 
-        // --- ICONS (Ersatz für lucide-react) ---
-        // Da wir keine externen Module laden können, definieren wir die SVGs hier direkt.
-        const IconBase = ({ path, className }) => (
-            <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="24" height="24" viewBox="0 0 24 24" 
-                fill="none" stroke="currentColor" strokeWidth="2" 
-                strokeLinecap="round" strokeLinejoin="round" 
-                className={className}
-            >
-                {path}
-            </svg>
-        );
+        // --- HELPERS ---
+        const getStorage = (key, def) => { try { return parseInt(localStorage.getItem(key)) || def; } catch(e) { return def; } };
+        const setStorage = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+        const triggerCelebration = (setShowAnim) => { confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, zIndex: 101 }); setShowAnim(true); setTimeout(() => setShowAnim(false), 3500); };
+        const CelebrationOverlay = () => <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"><img src="Logo-sMArTH.png" className="w-[80vw] max-w-md drop-shadow-2xl animate-fly-logo bg-white/80 p-4 rounded-3xl backdrop-blur-sm" alt="Logo" onError={(e)=>{e.target.style.display='none'}} /></div>;
+        const fDe = (n) => String(n).replace('.', ','); 
+        const formatNum = (num) => num == null ? "" : fDe(num);
+        const shuffleArray = (a) => { const n = [...a]; for (let i = n.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [n[i], n[j]] = [n[j], n[i]]; } return n; };
+        const randI = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-        const Calculator = ({ className }) => <IconBase className={className} path={<><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>} />;
-        const CheckCircle = ({ className }) => <IconBase className={className} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />;
-        const XCircle = ({ className }) => <IconBase className={className} path={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>} />;
-        const RefreshCw = ({ className }) => <IconBase className={className} path={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>} />;
-        const BookOpen = ({ className }) => <IconBase className={className} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />;
-        const TrendingUp = ({ className }) => <IconBase className={className} path={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>} />;
-        const ArrowRight = ({ className }) => <IconBase className={className} path={<><line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/></>} />;
-        const MousePointerClick = ({ className }) => <IconBase className={className} path={<><path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></>} />;
-        const Search = ({ className }) => <IconBase className={className} path={<><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></>} />;
+        // --- ICONS ---
+        const I = ({p,c}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}>{p}</svg>;
+        const Calculator = ({c}) => <I c={c} p={<><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>}/>;
+        const CalculatorOff = ({c}) => <I c={c} p={<><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/><line x1="2" y1="2" x2="22" y2="22"/></>}/>;
+        const CheckCircle = ({c}) => <I c={c} p={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>}/>;
+        const XCircle = ({c}) => <I c={c} p={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>}/>;
+        const RefreshCw = ({c}) => <I c={c} p={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>}/>;
+        const BookOpen = ({c}) => <I c={c} p={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>}/>;
+        const TrendingUp = ({c}) => <I c={c} p={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>}/>;
+        const TrendingDown = ({c}) => <I c={c} p={<><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></>}/>;
+        const ArrowRight = ({c}) => <I c={c} p={<><line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/></>}/>;
+        const ChevronRight = ({c}) => <I c={c} p={<><polyline points="9 18 15 12 9 6"/></>}/>;
+        const HomeIcon = ({c}) => <I c={c} p={<><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}/>;
+        const MenuIcon = ({c}) => <I c={c} p={<><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></>}/>;
+        const Shield = ({c}) => <I c={c} p={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>}/>;
+        const FileText = ({c}) => <I c={c} p={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></>}/>;
+        const DeleteIcon = ({c}) => <I c={c} p={<><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></>}/>;
+        const HelpCircle = ({c}) => <I c={c} p={<><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></>}/>;
+        const FastForward = ({c}) => <I c={c} p={<><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></>}/>;
+        const Target = ({c}) => <I c={c} p={<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>}/>;
+        const FractionIcon = ({c}) => <I c={c} p={<><line x1="4" x2="20" y1="12" y2="12"/><path d="M11 7 L12 5 L12 9"/><path d="M10 15 L14 19 M14 15 L10 19"/></>}/>;
 
-        // --- Helper Components for Formatting ---
-        const VarWn = () => <span>W<sub>n</sub></span>;
-        const VarW0 = () => <span>W<sub>0</sub></span>;
-        const VarQ = () => <span>q</span>;
-        const VarN = () => <span>n</span>;
-        const VarQpowN = () => <span>q<sup>n</sup></span>;
+        // --- SHARED COMPONENTS ---
+        const themeColors = {
+            emerald: { activeBorder: 'border-emerald-500', activeBg: 'bg-emerald-50', activeTitle: 'text-emerald-900', badgeBg: 'bg-emerald-600', shadow: 'shadow-emerald-100', btnBg: 'bg-emerald-600', btnHover: 'hover:bg-emerald-700' },
+            rose: { activeBorder: 'border-rose-400', activeBg: 'bg-rose-50', activeTitle: 'text-rose-900', badgeBg: 'bg-rose-500', shadow: 'shadow-rose-100', btnBg: 'bg-rose-500', btnHover: 'hover:bg-rose-600' },
+            amber: { activeBorder: 'border-amber-400', activeBg: 'bg-amber-50', activeTitle: 'text-amber-900', badgeBg: 'bg-amber-500', shadow: 'shadow-amber-100', btnBg: 'bg-amber-500', btnHover: 'hover:bg-amber-600' },
+            sky: { activeBorder: 'border-sky-400', activeBg: 'bg-sky-50', activeTitle: 'text-sky-900', badgeBg: 'bg-sky-500', shadow: 'shadow-sky-100', btnBg: 'bg-sky-500', btnHover: 'hover:bg-sky-600' }
+        };
 
-        // --- Scientific Calculator Component ---
-        const ScientificCalculator = ({ onClose }) => {
-            const [display, setDisplay] = useState('');
-            const [result, setResult] = useState(null);
+        const Frac = ({ top, bot }) => <span className="inline-flex flex-col items-center align-middle mx-1 px-1"><span className="border-b-[1.5px] border-current px-1 pb-0.5 w-full text-center leading-none">{top}</span><span className="px-1 pt-0.5 text-center leading-none">{bot}</span></span>;
+        const SubmitBtn = ({ onClick, theme = 'amber' }) => { const t = themeColors[theme]; return <button onClick={onClick} className={`${t.btnBg} ${t.btnHover} text-white p-2.5 rounded shadow flex items-center transition-colors`}><ArrowRight className="w-5 h-5" /></button>; };
+        const SuccessMark = ({ text }) => <div className="mt-4 text-green-700 font-medium flex items-center bg-green-50 px-3 py-2 rounded-lg border border-green-100 inline-flex"><CheckCircle className="w-5 h-5 mr-2 text-green-600 shrink-0" /> {text}</div>;
 
-            const handlePress = (val) => {
-                if (val === 'C') {
-                    setDisplay('');
-                    setResult(null);
-                } else if (val === 'DEL') {
-                    setDisplay(prev => prev.slice(0, -1));
-                } else if (val === '=') {
-                    try {
-                        let expr = display
-                            .replace(/\^/g, '**')
-                            .replace(/log/g, 'Math.log10')
-                            .replace(/ln/g, 'Math.log')
-                            .replace(/√/g, 'Math.sqrt');
-                        
-                        // eslint-disable-next-line no-new-func
-                        const res = new Function('return ' + expr)();
-                        const formatted = Math.round(res * 10000) / 10000;
-                        setResult(formatted.toString());
-                    } catch (e) {
-                        setResult('Error');
-                    }
-                } else {
-                    setDisplay(prev => prev + val);
-                }
-            };
+        const TipBox = ({ errors, revealed, setRevealed, text }) => {
+            if (errors < 3) return null;
+            if (!revealed) return <button onClick={() => setRevealed(true)} className="mt-4 text-amber-600 bg-amber-50 hover:bg-amber-100 px-4 py-2 rounded-lg font-medium flex items-center transition-colors border border-amber-200 animate-fade-in"><HelpCircle className="w-5 h-5 mr-2" /> Hier gibt es einen Tipp</button>;
+            return <div className="mt-4 bg-amber-50 border-l-4 border-amber-500 p-4 rounded shadow-sm text-amber-900 text-sm animate-fade-in flex"><HelpCircle className="w-6 h-6 mr-3 shrink-0 text-amber-600" /><div><strong className="block mb-1 text-amber-800">Tipp:</strong> {text}</div></div>;
+        };
 
-            const Btn = ({ label, val, color = 'bg-slate-100 text-slate-700', wide = false }) => (
-                <button 
-                    onClick={() => handlePress(val)}
-                    className={`${color} ${wide ? 'col-span-2' : ''} p-3 rounded-lg font-bold text-lg hover:brightness-95 active:scale-95 transition-all shadow-sm border border-slate-200`}
-                >
-                    {label}
-                </button>
+        const StepCard = ({ title, stepNum, currentStep, theme = 'amber', calcProps, tip, success, errProps, children }) => {
+            const isPast = currentStep > stepNum; const isActive = currentStep === stepNum; const t = themeColors[theme];
+            if (!isActive && !isPast) return (
+                <div className="bg-white rounded-xl shadow-sm border-2 border-slate-200 opacity-50 overflow-hidden"><div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center"><div className="w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold mr-3 shrink-0 bg-slate-300 text-slate-500">{stepNum}</div><h3 className="font-bold text-lg text-slate-500">{title}</h3></div></div>
             );
-
             return (
-                <div className="bg-slate-800 p-4 rounded-xl shadow-2xl w-full max-w-xs mx-auto text-white mt-4 border border-slate-600">
-                    <div className="bg-slate-900 p-3 rounded-lg mb-4 text-right min-h-[4rem] flex flex-col justify-center border border-slate-700">
-                        <div className="text-slate-400 text-sm overflow-hidden whitespace-nowrap">{display || '0'}</div>
-                        <div className="text-2xl font-mono text-green-400 font-bold overflow-hidden whitespace-nowrap">{result !== null ? `= ${result}` : ''}</div>
+                <div className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition-all duration-300 ${isActive ? `${t.activeBorder} ${t.shadow}` : 'border-green-200'}`}>
+                    <div className={`px-5 py-3 border-b flex items-center ${isActive ? `${t.activeBg} border-opacity-50` : 'bg-green-50 border-green-100'}`}>
+                        {isPast ? <CheckCircle className="text-green-500 mr-3 w-6 h-6 shrink-0" /> : <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold mr-3 shrink-0 ${t.badgeBg} text-white`}>{stepNum}</div>}
+                        <h3 className={`font-bold text-lg ${isActive ? t.activeTitle : 'text-green-900'}`}>{title}</h3>
                     </div>
-                    
-                    <div className="grid grid-cols-4 gap-2">
-                        <Btn label="C" val="C" color="bg-red-500 text-white" />
-                        <Btn label="(" val="(" color="bg-slate-600 text-slate-100" />
-                        <Btn label=")" val=")" color="bg-slate-600 text-slate-100" />
-                        <Btn label="DEL" val="DEL" color="bg-orange-500 text-white" />
-
-                        <Btn label="log" val="log(" color="bg-indigo-600 text-white" />
-                        <Btn label="ln" val="ln(" color="bg-indigo-600 text-white" />
-                        <Btn label="√" val="√(" color="bg-indigo-600 text-white" />
-                        <Btn label="^" val="^" color="bg-indigo-600 text-white" />
-
-                        <Btn label="7" val="7" />
-                        <Btn label="8" val="8" />
-                        <Btn label="9" val="9" />
-                        <Btn label="÷" val="/" color="bg-slate-300" />
-
-                        <Btn label="4" val="4" />
-                        <Btn label="5" val="5" />
-                        <Btn label="6" val="6" />
-                        <Btn label="×" val="*" color="bg-slate-300" />
-
-                        <Btn label="1" val="1" />
-                        <Btn label="2" val="2" />
-                        <Btn label="3" val="3" />
-                        <Btn label="-" val="-" color="bg-slate-300" />
-
-                        <Btn label="0" val="0" />
-                        <Btn label="." val="." />
-                        <Btn label="=" val="=" color="bg-green-600 text-white" />
-                        <Btn label="+" val="+" color="bg-slate-300" />
+                    <div className="p-4 sm:p-5">
+                        {isActive && calcProps?.calcOpen && <CalculatorPanel calcInput={calcProps.calcInput} setCalcInput={calcProps.setCalcInput} />}
+                        {children}
+                        {isActive && tip && <TipBox errors={errProps?.errors} revealed={errProps?.revealed} setRevealed={errProps?.setRevealed} text={tip} />}
+                        {isPast && success && <SuccessMark text={success} />}
                     </div>
-                    <p className="text-xs text-slate-400 mt-2 text-center">log = Basis 10, ln = Basis e</p>
                 </div>
             );
         };
 
-        // --- Input Field Component ---
-        const FormulaInput = ({ id, label, value, isUnknown, status, disabled, onChange }) => {
+        const CalculatorPanel = ({ calcInput, setCalcInput }) => {
+            const handleEval = () => {
+                try {
+                    let safeStr = calcInput.replace(/,/g, '.').replace(/×/g, '*').replace(/÷/g, '/').replace(/\^/g, '**').replace(/log₁₀\(/g, 'log10(').replace(/logᵦ\(/g, 'logb(').replace(/√\(/g, 'sqrt(');
+                    let res = Math.round(new Function('sin', 'cos', 'tan', 'log10', 'logb', 'sqrt', 'π', 'e', `return (${safeStr})`)(x=>Math.sin(x*Math.PI/180), x=>Math.cos(x*Math.PI/180), x=>Math.tan(x*Math.PI/180), Math.log10, (b,v)=>Math.log(v)/Math.log(b), Math.sqrt, Math.PI, Math.E) * 1e7) / 1e7;
+                    setCalcInput(res.toString().replace('.', ','));
+                } catch(err) { setCalcInput("Fehler"); setTimeout(() => setCalcInput(""), 1000); }
+            };
+            const btn = (l, a, cl) => <button onClick={a} className={`font-bold p-2 sm:p-3 rounded shadow-sm flex items-center justify-center transition-colors ${cl}`}>{l}</button>;
+            const bNum = (l) => btn(l, ()=>setCalcInput(p=>p+l), "bg-slate-200 hover:bg-slate-300 text-slate-900 text-lg sm:text-xl");
+            const bOp = (l, op=l) => btn(l, ()=>setCalcInput(p=>p+op), "bg-amber-500 hover:bg-amber-600 text-white text-lg sm:text-xl");
+            const bTop = (l, op=l) => btn(l, ()=>setCalcInput(p=>p+op), "bg-slate-300 hover:bg-slate-400 text-slate-800 text-sm sm:text-lg");
+            
+            return (
+                <div className="bg-slate-800 rounded-xl shadow-inner p-4 w-full max-w-sm mx-auto mb-6 border border-slate-700 animate-fade-in">
+                    <div className="bg-slate-100 p-3 rounded-lg text-right text-2xl sm:text-3xl font-mono mb-4 overflow-hidden h-16 flex items-center justify-end">{calcInput || "0"}</div>
+                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                        {bTop('sin','sin(')}{bTop('cos','cos(')}{bTop('tan','tan(')}{bTop('π')}{bTop('e')}
+                        {bTop('log₁₀','log₁₀(')}{bTop('logᵦ','logᵦ(')}{bTop('√','√(')}{bTop('xʸ','^')}{btn(<DeleteIcon className="w-5 h-5"/>, ()=>setCalcInput(p=>p.slice(0,-1)), "bg-red-500 hover:bg-red-600 text-white")}
+                        {bNum('7')}{bNum('8')}{bNum('9')}{bTop('(','(')}{bOp('÷')}
+                        {bNum('4')}{bNum('5')}{bNum('6')}{bTop(')',')')}{bOp('×')}
+                        {bNum('1')}{bNum('2')}{bNum('3')}{bOp('+')}{bOp('−','-')}
+                        {btn('C', ()=>setCalcInput(""), "bg-slate-400 hover:bg-slate-500 text-white text-lg")}{bNum('0')}{bTop(';')}{bNum(',')}{btn('=', handleEval, "bg-green-600 hover:bg-green-700 text-white text-xl")}
+                    </div>
+                </div>
+            );
+        };
+
+        const VarWn = () => <span>W<sub>n</sub></span>; const VarW0 = () => <span>W<sub>0</sub></span>; const VarQ = () => <span>q</span>; const VarN = () => <span>n</span>; const VarQpowN = () => <span>q<sup>n</sup></span>;
+        
+        const FormulaInput = ({ id, label, value, isUnknown, status, disabled, onChange, theme = "emerald" }) => {
+            const t = theme === 'rose' ? 'rose' : theme === 'emerald' ? 'emerald' : 'amber';
             return (
                 <div className="flex flex-col items-center">
                     <div className="mb-1 text-slate-500 font-serif italic text-lg">{label}</div>
-                    {isUnknown ? (
-                        <div className="w-24 h-12 rounded-lg border-2 border-indigo-300 bg-indigo-50 flex items-center justify-center text-indigo-400 font-bold select-none shadow-sm">
-                            ?
-                        </div>
-                    ) : (
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={value}
-                                disabled={disabled}
-                                onChange={(e) => onChange(id, e.target.value)}
-                                className={`w-24 h-12 text-center rounded-lg border-2 text-lg outline-none transition-colors shadow-sm ${
-                                    status === 'correct' ? 'border-green-500 bg-green-50 text-green-900' :
-                                    status === 'incorrect' ? 'border-red-400 bg-red-50' :
-                                    'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
-                                }`}
-                                placeholder="..."
-                            />
-                            {status === 'correct' && <CheckCircle className="w-5 h-5 text-green-600 absolute -top-2 -right-2 bg-white rounded-full shadow-sm" />}
-                        </div>
-                    )}
+                    {isUnknown ? <div className={`w-20 md:w-24 h-12 rounded-lg border-2 flex items-center justify-center font-bold select-none shadow-sm border-${t}-300 bg-${t}-50 text-${t}-400`}>?</div>
+                    : <div className="relative"><input type="text" value={value} disabled={disabled} onChange={(e) => onChange(id, e.target.value)} className={`w-20 md:w-24 h-12 text-center rounded-lg border-2 text-lg outline-none transition-colors shadow-sm ${status === 'correct' ? 'border-green-500 bg-green-50 text-green-900 font-bold' : status === 'incorrect' ? 'border-red-400 bg-red-50' : `border-slate-300 focus:border-${t}-500 focus:ring-2 focus:ring-${t}-200`}`} placeholder="..." />{status === 'correct' && <CheckCircle className="w-5 h-5 text-green-600 absolute -top-2 -right-2 bg-white rounded-full shadow-sm" />}</div>}
                 </div>
             );
         };
 
-        // --- MAIN APP COMPONENT ---
+        const MiniFormulaInput = ({ id, value, isUnknown, status, disabled, onChange }) => {
+            if (isUnknown) return <div className="w-12 h-8 rounded border-2 flex items-center justify-center font-bold select-none border-rose-300 bg-rose-50 text-rose-400 text-sm">?</div>;
+            return <div className="relative"><input type="text" value={value} disabled={disabled} onChange={(e) => onChange(id, e.target.value)} className={`w-12 h-8 text-center rounded border-2 text-sm outline-none transition-colors shadow-sm ${status === 'correct' ? 'border-green-500 bg-green-50 text-green-900 font-bold' : status === 'incorrect' ? 'border-red-400 bg-red-50' : `border-slate-300 focus:border-rose-500`}`} placeholder="..." />{status === 'correct' && <CheckCircle className="w-3 h-3 text-green-600 absolute -top-1 -right-1 bg-white rounded-full" />}</div>;
+        };
+
+        // --- WACHSTUMS- & ZERFALLSTRAINER ---
         const WachstumsTrainer = () => {
-            const [problem, setProblem] = useState(null);
-            
-            // States
-            const [step, setStep] = useState(1); 
-            
-            // Step 1 Data
-            const [identificationFeedback, setIdentificationFeedback] = useState(null);
-            const [selectedIdentification, setSelectedIdentification] = useState(null);
+            const [diff, setDiff] = useState('normal'); const [prob, setProb] = useState(null); const [step, setStep] = useState(1); const [selId, setSelId] = useState(null);
+            const [inputs, setInputs] = useState({ wn: '', w0: '', q: '', n: '' }); const [inFb, setInFb] = useState({});
+            const [opts, setOpts] = useState([]); const [selOpt, setSelOpt] = useState(null); const [ans, setAns] = useState(''); const [ansFb, setAnsFb] = useState(null);
+            const [showSol, setShowSol] = useState(false); const [streak, setStreak] = useState(() => getStorage('smarth_streak_wachstum', 0)); const [loading, setLoading] = useState(true); const [seqIdx, setSeqIdx] = useState(0);
+            const [calcOpen, setCalcOpen] = useState(false); const [calcInput, setCalcInput] = useState(""); const [errs, setErrs] = useState(0); const [tipRev, setTipRev] = useState(false); const [showAnim, setShowAnim] = useState(false);
 
-            // Step 2 Data
-            const [inputs, setInputs] = useState({ wn: '', w0: '', q: '', n: '' });
-            const [inputFeedback, setInputFeedback] = useState({});
-            
-            // Step 3 Data
-            const [options, setOptions] = useState([]);
-            const [selectedOptionId, setSelectedOptionId] = useState(null);
-            const [transformationFeedback, setTransformationFeedback] = useState(null);
+            useEffect(() => { setStorage('smarth_streak_wachstum', streak); }, [streak]);
+            const adv = (n) => { setStep(n); setErrs(0); setTipRev(false); }; const trigErr = () => { setErrs(e => e + 1); setStreak(0); };
+            const rnd = (n, d = 2) => Math.round(n * Math.pow(10, d)) / Math.pow(10, d);
+            const hc = (id, v) => { setInputs(p => ({ ...p, [id]: v.replace('.', ',') })); setInFb(p => ({ ...p, [id]: null })); };
 
-            // Step 4 Data
-            const [finalAnswer, setFinalAnswer] = useState('');
-            const [finalFeedback, setFinalFeedback] = useState(null);
-            const [showCalculator, setShowCalculator] = useState(false);
-            
-            const [showSolution, setShowSolution] = useState(false);
-            const [streak, setStreak] = useState(0);
-            const [loading, setLoading] = useState(true);
-
-            // Sequence: 0: Wn, 1: rate (q), 2: W0, 3: n
-            const [sequenceIndex, setSequenceIndex] = useState(0);
-
-            const round = (num, decimals = 2) => {
-                return Math.round(num * Math.pow(10, decimals)) / Math.pow(10, decimals);
-            };
-
-            const generateProblem = () => {
-                setLoading(true);
-                setStep(1);
-                
-                setIdentificationFeedback(null);
-                setSelectedIdentification(null);
-
-                setInputs({ wn: '', w0: '', q: '', n: '' });
-                setInputFeedback({});
-
-                setOptions([]);
-                setSelectedOptionId(null);
-                setTransformationFeedback(null);
-
-                setFinalAnswer('');
-                setFinalFeedback(null);
-                setShowCalculator(false);
-                setShowSolution(false);
-
-                const scenarios = ['money', 'population', 'depreciation', 'bacteria'];
-                const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-                
-                const sequenceOrder = ['Wn', 'rate', 'W0', 'n'];
-                const type = sequenceOrder[sequenceIndex % sequenceOrder.length];
-
-                setSequenceIndex(prev => prev + 1);
-
-                let w0 = 0, rate = 0, n = 0, q = 0, wn = 0;
-                let unit = "";
-                let isGrowth = true;
-
-                switch (scenario) {
-                    case 'money':
-                        unit = "€";
-                        w0 = Math.floor(Math.random() * 50) * 100 + 500; 
-                        rate = round(Math.random() * 4 + 0.5, 1); 
-                        n = Math.floor(Math.random() * 10) + 2; 
-                        isGrowth = true;
-                        break;
-                    case 'depreciation':
-                        unit = "€";
-                        w0 = Math.floor(Math.random() * 20) * 1000 + 15000; 
-                        rate = Math.floor(Math.random() * 10) + 8; 
-                        n = Math.floor(Math.random() * 6) + 3; 
-                        isGrowth = false;
-                        break;
-                    case 'population':
-                        unit = "Einwohner";
-                        w0 = Math.floor(Math.random() * 50) * 1000 + 10000; 
-                        rate = round(Math.random() * 2 + 0.5, 1);
-                        n = Math.floor(Math.random() * 15) + 5;
-                        isGrowth = Math.random() > 0.3; 
-                        break;
-                    case 'bacteria':
-                        unit = "Bakterien";
-                        w0 = Math.floor(Math.random() * 100) + 50;
-                        rate = Math.floor(Math.random() * 20) + 10; 
-                        n = Math.floor(Math.random() * 12) + 2; 
-                        isGrowth = true;
-                        break;
+            const genProb = () => {
+                setCalcOpen(false); setLoading(true); setStep(1); setSelId(null); setInputs({ wn: '', w0: '', q: '', n: '' }); setInFb({}); setOpts([]); setSelOpt(null); setAns(''); setAnsFb(null); setShowSol(false); setErrs(0); setTipRev(false);
+                const scens = ['money', 'pop', 'dep', 'cool']; const sc = scens[Math.floor(Math.random() * scens.length)];
+                const typ = ['Wn', 'rate', 'W0', 'n'][seqIdx % 4]; setSeqIdx(p => p + 1);
+                let w0, r, n, q, wn, u, isGr = (sc === 'money' || sc === 'pop');
+                switch (sc) {
+                    case 'money': u="€"; w0=Math.floor(Math.random()*50)*100+500; r=rnd(Math.random()*4+0.5,1); n=Math.floor(Math.random()*10)+2; break;
+                    case 'pop': u="Einwohner"; w0=Math.floor(Math.random()*50)*1000+10000; r=rnd(Math.random()*2+0.5,1); n=Math.floor(Math.random()*15)+5; break;
+                    case 'dep': u="€"; w0=Math.floor(Math.random()*20)*1000+15000; r=Math.floor(Math.random()*10)+8; n=Math.floor(Math.random()*6)+3; break;
+                    case 'cool': u="°C"; w0=Math.floor(Math.random()*60)+40; r=Math.floor(Math.random()*15)+5; n=Math.floor(Math.random()*10)+2; break;
                 }
-
-                q = isGrowth ? 1 + rate / 100 : 1 - rate / 100;
-                q = round(q, 4);
-                wn = round(w0 * Math.pow(q, n), 2);
-                if (unit === 'Einwohner' || unit === 'Bakterien') wn = Math.round(wn);
-
-                let questionText = "";
-                const timeUnit = (scenario === 'bacteria') ? 'Stunden' : 'Jahren';
-                const timeAdverb = (scenario === 'bacteria') ? 'stündlich' : 'jährlich';
-                const valWord = (scenario === 'money') ? 'Kapital' : (scenario === 'depreciation' ? 'Wert' : 'Bestand');
-
-                switch (type) {
-                    case 'Wn':
-                        if (scenario === 'money') questionText = `Ein Kapital von ${w0} € wird für ${n} Jahre fest angelegt. Der Zinssatz beträgt ${rate} %.`;
-                        else if (scenario === 'depreciation') questionText = `Ein Neuwagen kostet ${w0} €. Er verliert jährlich ${rate} % an Wert. Die Laufzeit beträgt ${n} Jahre.`;
-                        else questionText = `Ein Bestand von ${w0} ${unit} ${isGrowth ? 'wächst' : 'schrumpft'} ${timeAdverb} um ${rate} %. Zeitraum: ${n} ${timeUnit}.`;
-                        break;
-                    case 'W0':
-                        questionText = `Nach ${n} ${timeUnit} ist ein ${valWord} auf ${wn} ${unit} ${(isGrowth ? 'angestiegen' : 'gesunken')}. Die jährliche Veränderung betrug ${rate} %.`;
-                        break;
-                    case 'rate':
-                        questionText = `Ein ${valWord} hat sich in ${n} ${timeUnit} von ${w0} ${unit} auf ${wn} ${unit} verändert.`;
-                        break;
-                    case 'n':
-                        questionText = `Startwert: ${w0} ${unit}. Endwert: ${wn} ${unit}. Veränderung: ${rate} % pro ${timeUnit === 'Stunden' ? 'Stunde' : 'Jahr'}.`;
-                        break;
-                }
-                
-                questionText += " Was musst du berechnen?";
-
-                let explanation = `Gegeben:\n`;
-                if (type !== 'W0') explanation += `W0 = ${w0} ${unit}\n`;
-                if (type !== 'Wn') explanation += `Wn = ${wn} ${unit}\n`;
-                if (type !== 'n') explanation += `n = ${n}\n`;
-                if (type !== 'rate') explanation += `p = ${rate}%  =>  q = ${q}\n`;
-                
-                explanation += `\nRechnung:\n`;
-                if (type === 'Wn') explanation += `Wn = ${w0} · ${q}^${n} = ${wn}`;
-                if (type === 'W0') explanation += `W0 = ${wn} / ${q}^${n} = ${w0}`;
-                if (type === 'rate') explanation += `q = (${wn}/${w0})^(1/${n}) = ${q} => p=${rate}%`;
-                if (type === 'n') explanation += `n = log(${wn}/${w0}) / log(${q}) = ${n}`;
-
-                const newProblem = {
-                    type, scenario, text: questionText,
-                    w0, wn, rate, q, n, unit,
-                    solution: type === 'rate' ? rate : (type === 'n' ? n : (type === 'W0' ? w0 : wn)),
-                    explanation
-                };
-
-                setProblem(newProblem);
-                generateOptions(newProblem);
-                setLoading(false);
-            };
-
-            const generateOptions = (prob) => {
-                let opts = [];
-                switch (prob.type) {
-                    case 'Wn':
-                        opts = [
-                            { id: '1', label: 'Formel ist bereits aufgelöst. Einfach ausrechnen.', isCorrect: true },
-                            { id: '2', label: <span>Teile durch <VarW0/></span>, isCorrect: false },
-                            { id: '3', label: <span>Ziehe die {prob.n}-te Wurzel</span>, isCorrect: false }
-                        ];
-                        break;
-                    case 'W0':
-                        opts = [
-                            { id: '1', label: <span>Teile durch <VarQpowN/></span>, isCorrect: true },
-                            { id: '2', label: <span>Multipliziere mit <VarQpowN/></span>, isCorrect: false },
-                            { id: '3', label: <span>Subtrahiere <VarQpowN/></span>, isCorrect: false }
-                        ];
-                        break;
-                    case 'rate':
-                        opts = [
-                            { id: '1', label: <span>1. Teile durch <VarW0/> <br/> 2. Ziehe die {prob.n}-te Wurzel</span>, isCorrect: true },
-                            { id: '2', label: <span>1. Teile durch <VarW0/> <br/> 2. Teile durch {prob.n}</span>, isCorrect: false },
-                            { id: '3', label: <span>1. Teile durch {prob.n} <br/> 2. Ziehe die Wurzel</span>, isCorrect: false }
-                        ];
-                        break;
-                    case 'n':
-                        opts = [
-                            { id: '1', label: <span>1. Teile durch <VarW0/> <br/> 2. Wende den Logarithmus an</span>, isCorrect: true },
-                            { id: '2', label: <span>1. Teile durch <VarQ/> <br/> 2. Wende den Logarithmus an</span>, isCorrect: false },
-                            { id: '3', label: <span>1. Teile durch <VarW0/> <br/> 2. Ziehe die {prob.n}-te Wurzel</span>, isCorrect: false }
-                        ];
-                        break;
-                }
-                setOptions(opts.sort(() => Math.random() - 0.5));
-            };
-
-            const handleIdentify = (selected) => {
-                if (identificationFeedback === 'correct' || !problem) return;
-                
-                setSelectedIdentification(selected);
-                if (selected === problem.type) {
-                    setIdentificationFeedback('correct');
-                    setTimeout(() => setStep(2), 1000);
+                q = isGr ? rnd(1 + r/100, 4) : rnd(1 - r/100, 4); wn = rnd(w0 * Math.pow(q, n), 2); if (u === 'Einwohner') wn = Math.round(wn);
+                const w0f = fDe(w0); const wnf = fDe(wn); const rf = fDe(r);
+                let qt = ""; const tu = (sc === 'cool') ? 'Minuten' : 'Jahren'; const ta = (sc === 'cool') ? 'minütlich' : 'jährlich'; const aw = isGr ? 'wächst/steigt' : 'sinkt/fällt'; const vw = (sc === 'money' || sc === 'dep') ? 'Wert' : (sc === 'cool' ? 'Temperatur' : 'Bestand');
+                if (diff === 'schwer' && tu === 'Jahren') {
+                    let y1 = 2010 + Math.floor(Math.random()*8); let y2 = y1 + n;
+                    if (typ==='Wn') qt=`Im Jahr ${y1} lag der ${vw} bei ${w0f} ${u}. Er ${aw} ${ta} um ${rf} %. Wie hoch ist er im Jahr ${y2}?`;
+                    if (typ==='W0') qt=`Im Jahr ${y2} liegt der ${vw} bei ${wnf} ${u}, nach ${ta}er Änderung um ${rf} %. Wie hoch war er ${y1}?`;
+                    if (typ==='rate') qt=`Der ${vw} hat sich von ${y1} (${w0f} ${u}) bis ${y2} (${wnf} ${u}) verändert. Jährliche %-Änderung?`;
+                    if (typ==='n') qt=`Start: ${w0f} ${u}. Er ${aw} um ${rf} % pro Jahr. Nach wie vielen Jahren wird ${wnf} ${u} erreicht?`; 
                 } else {
-                    setIdentificationFeedback('incorrect');
-                    setStreak(0);
+                    if (typ==='Wn') qt=`Ein ${vw} von ${w0f} ${u} ${aw} ${ta} um ${rf} %. Zeitraum: ${n} ${tu}.`;
+                    if (typ==='W0') qt=`Nach ${n} ${tu} ist ein ${vw} auf ${wnf} ${u} geändert. Die Veränderung betrug ${rf} %.`;
+                    if (typ==='rate') qt=`Ein ${vw} hat sich in ${n} ${tu} von ${w0f} ${u} auf ${wnf} ${u} verändert.`;
+                    if (typ==='n') qt=`Startwert: ${w0f} ${u}. Endwert: ${wnf} ${u}. Veränderung: ${rf} % pro ${tu==='Minuten'?'Minute':'Jahr'}.`;
                 }
+                let expl = `Gegeben:\n${typ!=='W0'?`W0 = ${w0f} ${u}\n`:''}${typ!=='Wn'?`Wn = ${wnf} ${u}\n`:''}${typ!=='n'?`n = ${n}\n`:''}${typ!=='rate'?`p = ${rf}%  =>  q = ${fDe(q)}\n`:''}\nRechnung:\n`;
+                if(typ==='Wn') expl+=`Wn = ${w0f} · ${fDe(q)}^${n} = ${wnf}`; if(typ==='W0') expl+=`W0 = ${wnf} / ${fDe(q)}^${n} = ${w0f}`; if(typ==='rate') expl+=`q = (${wnf}/${w0f})^(1/${n}) = ${fDe(q)} => p=${rf}%`; if(typ==='n') expl+=`n = log(${wnf}/${w0f}) / log(${fDe(q)}) = ${n}`;
+                setProb({ type: typ, text: qt+" Was musst du berechnen?", w0, wn, r, q, n, u, sol: typ==='rate'?r:(typ==='n'?n:(typ==='W0'?w0:wn)), expl });
+                
+                let ops = [];
+                if(typ==='Wn') ops=[{id:1,l:'Formel ist aufgelöst.',c:true},{id:2,l:<span>Teile durch <VarW0/></span>,c:false},{id:3,l:<span>Ziehe die {n}-te Wurzel</span>,c:false}];
+                if(typ==='W0') ops=[{id:1,l:<span>Teile durch <VarQpowN/></span>,c:true},{id:2,l:<span>Multipliziere mit <VarQpowN/></span>,c:false},{id:3,l:<span>Subtrahiere <VarQpowN/></span>,c:false}];
+                if(typ==='rate') ops=[{id:1,l:<span>1. Teile durch <VarW0/><br/>2. Ziehe die {n}-te Wurzel</span>,c:true},{id:2,l:<span>1. Teile durch <VarW0/><br/>2. Teile durch {n}</span>,c:false}];
+                if(typ==='n') ops=[{id:1,l:<span>1. Teile durch <VarW0/><br/>2. Logarithmus anwenden</span>,c:true},{id:2,l:<span>1. Teile durch <VarQ/><br/>2. Logarithmus anwenden</span>,c:false}];
+                setOpts(ops.sort(()=>Math.random()-0.5)); setLoading(false);
+            };
+            useEffect(() => { genProb(); }, [diff]);
+
+            const chkInp = () => {
+                let ok = true, fb = {}; const cv = (i, t) => !isNaN(parseFloat(i.replace(',','.'))) && Math.abs(parseFloat(i.replace(',','.'))-t)<Math.max(t*0.01,0.005);
+                if(prob.type!=='Wn' && !cv(inputs.wn,prob.wn)){fb.wn='incorrect';ok=false;}else fb.wn='correct';
+                if(prob.type!=='W0' && !cv(inputs.w0,prob.w0)){fb.w0='incorrect';ok=false;}else fb.w0='correct';
+                if(prob.type!=='rate'&&!cv(inputs.q,prob.q)){fb.q='incorrect';ok=false;}else fb.q='correct';
+                if(prob.type!=='n'  && !cv(inputs.n,prob.n)){fb.n='incorrect';ok=false;}else fb.n='correct';
+                setInFb(fb); if(ok) adv(3); else trigErr();
+            };
+            const chkFin = () => {
+                const v = parseFloat(ans.replace(',','.')); if(isNaN(v)) return;
+                const tol = prob.type==='n'?0.5:(prob.sol*0.01);
+                if(Math.abs(v-prob.sol)<=tol || (prob.type==='n'&&Math.round(v)===prob.sol)){
+                    setAnsFb('correct'); setStreak(s=>s+1); if((streak+1)%3===0) triggerCelebration(setShowAnim);
+                    setShowSol(true); adv(5);
+                } else { setAnsFb('incorrect'); trigErr(); }
             };
 
-            const checkFormulaInputs = () => {
-                if (!problem) return;
-                const feedback = {};
-                let allCorrect = true;
+            const cProps = {calcOpen, calcInput, setCalcInput}; const errP = {errors:errs, revealed:tipRev, setRevealed:setTipRev};
+            return (
+                <div className="page-transition max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    {showAnim && <CelebrationOverlay />}
+                    <header className="bg-emerald-700 text-emerald-50 shadow-md p-6 rounded-xl mb-6"><div className="flex flex-col sm:flex-row justify-between gap-4"><div className="flex items-center space-x-3"><TrendingUp className="w-8 h-8"/><div><h1 className="text-2xl font-bold">Wachstum & Zerfall</h1></div></div><div className="bg-emerald-800 px-4 py-1.5 rounded-full font-bold shadow-sm">Streak: {streak}</div></div></header>
+                    <div className="flex justify-center gap-3 mb-6 bg-white p-3 rounded-xl shadow-sm border border-slate-200"><button onClick={()=>setDiff('normal')} className={`px-4 py-2 font-bold rounded-lg ${diff==='normal'?'bg-emerald-600 text-white':'bg-white text-slate-600 border'}`}>Normal</button><button onClick={()=>setDiff('schwer')} className={`px-4 py-2 font-bold rounded-lg ${diff==='schwer'?'bg-emerald-600 text-white':'bg-white text-slate-600 border'}`}>Schwer</button></div>
+                    <main className="space-y-6 relative">
+                        <div className="sticky top-20 z-40 flex justify-center w-full my-4 pointer-events-none"><button onClick={()=>setCalcOpen(!calcOpen)} className="pointer-events-auto bg-slate-800 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center border-4 border-slate-700">{calcOpen?<XCircle className="w-7 h-7"/>:<Calculator className="w-7 h-7"/>}</button></div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="bg-emerald-50 px-6 py-3 border-b border-emerald-200"><h2 className="font-semibold text-emerald-900">Sachaufgabe</h2></div><div className="p-6 text-center">{loading?<RefreshCw className="w-8 h-8 animate-spin mx-auto text-emerald-500"/>:<p className="text-xl font-medium">{prob?.text}</p>}</div></div>
+                        <StepCard title="1. Was ist gesucht?" stepNum={1} currentStep={step} theme="emerald" calcProps={cProps} errProps={errP} tip="Lies genau..." success="Richtig identifiziert!">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[{t:'Wn',l:<VarWn/>,d:"Endwert"},{t:'W0',l:<VarW0/>,d:"Anfangswert"},{t:'rate',l:<VarQ/>,d:"Faktor"},{t:'n',l:<VarN/>,d:"Laufzeit"}].map(i=><button key={i.t} onClick={()=>{if(step===1&&prob){setSelId(i.t);if(i.t===prob.type){setTimeout(()=>adv(2),600);}else trigErr();}}} disabled={step>1} className={`p-4 rounded-xl border-2 flex flex-col items-center ${selId===i.t?(i.t===prob?.type?'border-green-500 bg-green-50':'border-red-400 bg-red-50'):'border-slate-200'}`}><span className="text-xl font-bold">{i.l}</span><span className="text-xs">{i.d}</span></button>)}</div>
+                        </StepCard>
+                        <StepCard title="2. Werte einsetzen" stepNum={2} currentStep={step} theme="emerald" calcProps={cProps} errProps={errP} tip={diff==='schwer'?"n ist die Differenz der Jahre.":"q ist (1 + p/100) bei Zunahme."} success="Richtig eingesetzt!" onCheck={step===2?chkInp:null}>
+                            {prob && <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300"><FormulaInput id="wn" label={<VarWn/>} value={inputs.wn} theme="emerald" isUnknown={prob.type==='Wn'} status={inFb.wn} disabled={step>2||inFb.wn==='correct'} onChange={hc} /><span className="text-2xl mt-6">=</span><FormulaInput id="w0" label={<VarW0/>} value={inputs.w0} theme="emerald" isUnknown={prob.type==='W0'} status={inFb.w0} disabled={step>2||inFb.w0==='correct'} onChange={hc} /><span className="text-2xl mt-6">·</span><FormulaInput id="q" label={<VarQ/>} value={inputs.q} theme="emerald" isUnknown={prob.type==='rate'} status={inFb.q} disabled={step>2||inFb.q==='correct'} onChange={hc} /><div className="-top-6 relative"><FormulaInput id="n" label={<span className="text-sm"><VarN/></span>} value={inputs.n} theme="emerald" isUnknown={prob.type==='n'} status={inFb.n} disabled={step>2||inFb.n==='correct'} onChange={hc} /></div></div>}
+                        </StepCard>
+                        <StepCard title="3. Umformen" stepNum={3} currentStep={step} theme="emerald" calcProps={cProps} errProps={errP} tip="Um W0 freizustellen: teile durch q^n." success="Richtig umgeformt!">
+                            {prob && <><div className="flex justify-center gap-2 text-xl font-mono bg-slate-100 py-4 rounded-lg mb-6"><span>{prob.type==='Wn'?<span className="text-emerald-700 font-bold">Wn</span>:fDe(prob.wn)} = {prob.type==='W0'?<span className="text-emerald-700 font-bold">W0</span>:fDe(prob.w0)} · {prob.type==='rate'?<span className="text-emerald-700 font-bold">q</span>:fDe(prob.q)}<sup>{prob.type==='n'?<span className="text-emerald-700 font-bold">n</span>:prob.n}</sup></span></div>
+                            <div className="grid sm:grid-cols-3 gap-3">{opts.map(o=><button key={o.id} onClick={()=>{if(step===3){setSelOpt(o.id);if(o.c)setTimeout(()=>adv(4),600);else trigErr();}}} disabled={step>3} className={`p-4 rounded-xl border-2 font-medium ${selOpt===o.id?(o.c?'border-green-500 bg-green-50':'border-red-400 bg-red-50'):'border-slate-200'}`}>{o.l}</button>)}</div></>}
+                        </StepCard>
+                        <StepCard title="4. Berechnen" stepNum={4} currentStep={step} theme="emerald" calcProps={cProps} errProps={errP} tip="Nutze den Taschenrechner." success="Perfekt!" onCheck={step===4?chkFin:null}>
+                            {prob && <div className="relative w-full"><span className="absolute left-4 top-1/2 -translate-y-1/2 font-serif text-slate-400 italic">{prob.type==='Wn'?<VarWn/>:prob.type==='W0'?<VarW0/>:prob.type==='rate'?'p':<VarN/>} =</span><input type="text" value={ans} onChange={e=>setAns(e.target.value.replace('.',','))} disabled={step===5} className={`pl-16 pr-12 py-3 w-full rounded-lg border-2 text-lg outline-none ${ansFb==='correct'?'border-green-500 bg-green-50':ansFb==='incorrect'?'border-red-400 bg-red-50':'border-slate-300'}`} /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">{prob.type==='rate'?'%':prob.u}</span></div>}
+                        </StepCard>
+                        {step === 5 && (
+                            <div className="bg-green-50 border-2 border-green-500 p-8 rounded-xl shadow-sm text-center animate-fade-in mt-6">
+                                {calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                <h3 className="text-3xl font-bold text-green-800 mb-3">Klasse gemacht! 🎉</h3>
+                                <div className="flex justify-center gap-4 mt-6"><button onClick={()=>setShowSol(!showSol)} className="text-slate-600 bg-white border px-6 py-3 rounded-lg shadow-sm">Lösungsweg</button><button onClick={genProb} className="bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold shadow-md">Nächste Aufgabe</button></div>
+                                {showSol && <div className="w-full bg-white p-6 rounded-xl border mt-6 text-sm font-mono whitespace-pre-line text-left shadow-inner">{prob.expl}</div>}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
 
-                const checkVal = (input, target) => {
-                    const val = parseFloat(input.replace(',', '.'));
-                    if (isNaN(val)) return false;
-                    return Math.abs(val - target) < (Math.max(target * 0.01, 0.005)); 
-                };
+        const ZerfallsTrainer = () => {
+            const [diff, setDiff] = useState('normal'); const [prob, setProb] = useState(null); const [step, setStep] = useState(1); const [selId, setSelId] = useState(null);
+            const [inputs, setInputs] = useState({ wn: '', w0: '', t: '', thalf: '' }); const [inFb, setInFb] = useState({});
+            const [opts, setOpts] = useState([]); const [selOpt, setSelOpt] = useState(null); const [ans, setAns] = useState(''); const [ansFb, setAnsFb] = useState(null);
+            const [showSol, setShowSol] = useState(false); const [streak, setStreak] = useState(() => getStorage('smarth_streak_zerfall', 0)); const [loading, setLoading] = useState(true); const [seqIdx, setSeqIdx] = useState(0);
+            const [calcOpen, setCalcOpen] = useState(false); const [calcInput, setCalcInput] = useState(""); const [errs, setErrs] = useState(0); const [tipRev, setTipRev] = useState(false); const [showAnim, setShowAnim] = useState(false);
 
-                if (problem.type !== 'Wn' && !checkVal(inputs.wn, problem.wn)) { feedback.wn = 'incorrect'; allCorrect = false; } else feedback.wn = 'correct';
-                if (problem.type !== 'W0' && !checkVal(inputs.w0, problem.w0)) { feedback.w0 = 'incorrect'; allCorrect = false; } else feedback.w0 = 'correct';
-                if (problem.type !== 'rate' && !checkVal(inputs.q, problem.q)) { feedback.q = 'incorrect'; allCorrect = false; } else feedback.q = 'correct';
-                if (problem.type !== 'n' && !checkVal(inputs.n, problem.n)) { feedback.n = 'incorrect'; allCorrect = false; } else feedback.n = 'correct';
+            useEffect(() => { setStorage('smarth_streak_zerfall', streak); }, [streak]);
+            const adv = (n) => { setStep(n); setErrs(0); setTipRev(false); }; const trigErr = () => { setErrs(e => e + 1); setStreak(0); };
+            const rnd = (n, d = 2) => Math.round(n * Math.pow(10, d)) / Math.pow(10, d);
+            const hc = (id, v) => { setInputs(p => ({ ...p, [id]: v.replace('.', ',') })); setInFb(p => ({ ...p, [id]: null })); };
 
-                setInputFeedback(feedback);
-                if (allCorrect) setStep(3);
-            };
-
-            const handleOptionSelect = (opt) => {
-                if (transformationFeedback === 'correct') return;
-                setSelectedOptionId(opt.id);
-                if (opt.isCorrect) {
-                    setTransformationFeedback('correct');
-                    setTimeout(() => setStep(4), 1200);
+            const genProb = () => {
+                setCalcOpen(false); setLoading(true); setStep(1); setSelId(null); setInputs({ wn: '', w0: '', t: '', thalf: '' }); setInFb({}); setOpts([]); setSelOpt(null); setAns(''); setAnsFb(null); setShowSol(false); setErrs(0); setTipRev(false);
+                const scens = ['rad', 'med']; const sc = scens[Math.floor(Math.random() * scens.length)];
+                const typ = ['Wn', 'W0', 't'][seqIdx % 3]; setSeqIdx(p => p + 1);
+                let w0, t, th, wn, u, tu; const q = 0.5;
+                if (sc === 'rad') { u="mg"; tu="Tagen"; w0=Math.floor(Math.random()*100)*10+500; th=Math.floor(Math.random()*8)+2; t=th*(Math.floor(Math.random()*5)+2); }
+                else { u="mg"; tu="Stunden"; w0=Math.floor(Math.random()*40)*10+200; th=Math.floor(Math.random()*6)+2; t=th*(Math.floor(Math.random()*4)+2); }
+                if (diff === 'schwer') { t=Math.floor(Math.random()*12)+5; th=Math.floor(Math.random()*5)+2; }
+                wn = rnd(w0 * Math.pow(q, t/th), 2); const w0f = fDe(w0); const wnf = fDe(wn);
+                let qt = ""; const vw = sc === 'med' ? 'Wirkstoffmenge' : 'Masse';
+                if (diff === 'schwer') {
+                    qt = `Halbwertszeit: ${th} ${tu}. `;
+                    if(typ==='Wn') qt+=`Beginn: ${w0f} ${u}. Wie viel ist nach ${t} ${tu} noch messbar?`;
+                    if(typ==='W0') qt+=`Nach ${t} ${tu} noch ${wnf} ${u} messbar. Ausgangsmenge?`;
+                    if(typ==='t')  qt+=`Start: ${w0f} ${u}. Jetzt ${wnf} ${u}. Wie viele ${tu} sind vergangen?`;
                 } else {
-                    setTransformationFeedback('incorrect');
-                    setStreak(0);
+                    if(typ==='Wn') qt=`Eine ${vw} von ${w0f} ${u} hat Halbwertszeit ${th} ${tu}. Zeitraum: ${t} ${tu}.`;
+                    if(typ==='W0') qt=`Nach ${t} ${tu} ist die ${vw} auf ${wnf} ${u} gesunken. Halbwertszeit: ${th} ${tu}.`;
+                    if(typ==='t')  qt=`Start: ${w0f} ${u}. Endwert: ${wnf} ${u}. Halbwertszeit: ${th} ${tu}.`;
                 }
+                let expl = `Gegeben:\n${typ!=='W0'?`W0 = ${w0f} ${u}\n`:''}${typ!=='Wn'?`Wn = ${wnf} ${u}\n`:''}${typ!=='t'?`t = ${t} ${tu}\n`:''}T₁/₂ = ${th} ${tu} => q=0,5\n\nRechnung:\n`;
+                if(typ==='Wn') expl+=`Wn = ${w0f} · 0,5^(${t}/${th}) = ${wnf}`; if(typ==='W0') expl+=`W0 = ${wnf} / 0,5^(${t}/${th}) = ${w0f}`; if(typ==='t') expl+=`t = ( log(${wnf}/${w0f}) / log(0,5) ) · ${th} = ${t}`;
+                setProb({ type: typ, text: qt+" Was berechnest du?", w0, wn, q, t, th, u, sol: typ==='t'?t:(typ==='W0'?w0:wn), expl });
+                let ops = [];
+                if(typ==='Wn') ops=[{id:1,l:'Formel ist aufgelöst.',c:true},{id:2,l:<span>Teile durch <VarW0/></span>,c:false}];
+                if(typ==='W0') ops=[{id:1,l:<span>Teile durch 0,5<sup>t/T<sub>1/2</sub></sup></span>,c:true},{id:2,l:<span>Multipliziere mit 0,5<sup>t/T<sub>1/2</sub></sup></span>,c:false}];
+                if(typ==='t')  ops=[{id:1,l:<span>1. Teile durch <VarW0/> <br/> 2. Logarithmus<br/> 3. Mal T<sub>1/2</sub></span>,c:true},{id:2,l:<span>1. Teile durch 0,5 <br/> 2. Logarithmus</span>,c:false}];
+                setOpts(ops.sort(()=>Math.random()-0.5)); setLoading(false);
+            };
+            useEffect(() => { genProb(); }, [diff]);
+
+            const chkInp = () => {
+                let ok=true, fb={}; const cv = (i, t) => !isNaN(parseFloat(i.replace(',','.'))) && Math.abs(parseFloat(i.replace(',','.'))-t)<Math.max(t*0.01,0.005);
+                if(prob.type!=='Wn'&&!cv(inputs.wn,prob.wn)){fb.wn='incorrect';ok=false;}else fb.wn='correct';
+                if(prob.type!=='W0'&&!cv(inputs.w0,prob.w0)){fb.w0='incorrect';ok=false;}else fb.w0='correct';
+                if(prob.type!=='t' &&!cv(inputs.t,prob.t)){fb.t='incorrect';ok=false;}else fb.t='correct';
+                if(!cv(inputs.thalf,prob.th)){fb.thalf='incorrect';ok=false;}else fb.thalf='correct';
+                setInFb(fb); if(ok) adv(3); else trigErr();
+            };
+            const chkFin = () => {
+                const v = parseFloat(ans.replace(',','.')); if(isNaN(v)) return;
+                if(Math.abs(v-prob.sol)<=(prob.type==='t'?0.5:prob.sol*0.01) || (prob.type==='t'&&Math.round(v)===prob.sol)){
+                    setAnsFb('correct'); setStreak(s=>s+1); if((streak+1)%3===0) triggerCelebration(setShowAnim);
+                    setShowSol(true); adv(5);
+                } else { setAnsFb('incorrect'); trigErr(); }
             };
 
-            const checkFinalResult = () => {
-                if (!problem) return;
-                const val = parseFloat(finalAnswer.replace(',', '.'));
-                if (isNaN(val)) return;
+            const cProps = {calcOpen, calcInput, setCalcInput}; const errP = {errors:errs, revealed:tipRev, setRevealed:setTipRev};
+            return (
+                <div className="page-transition max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    {showAnim && <CelebrationOverlay />}
+                    <header className="bg-rose-600 text-rose-50 shadow-md p-6 rounded-xl mb-6"><div className="flex flex-col sm:flex-row justify-between gap-4"><div className="flex items-center space-x-3"><TrendingDown className="w-8 h-8"/><div><h1 className="text-2xl font-bold">Halbwertszeit</h1></div></div><div className="bg-rose-700 px-4 py-1.5 rounded-full font-bold shadow-sm">Streak: {streak}</div></div></header>
+                    <div className="flex justify-center gap-3 mb-6 bg-white p-3 rounded-xl shadow-sm border border-slate-200"><button onClick={()=>setDiff('normal')} className={`px-4 py-2 font-bold rounded-lg ${diff==='normal'?'bg-rose-600 text-white':'bg-white text-slate-600 border'}`}>Normal</button><button onClick={()=>setDiff('schwer')} className={`px-4 py-2 font-bold rounded-lg ${diff==='schwer'?'bg-rose-600 text-white':'bg-white text-slate-600 border'}`}>Schwer</button></div>
+                    <main className="space-y-6 relative">
+                        <div className="sticky top-20 z-40 flex justify-center w-full my-4 pointer-events-none"><button onClick={()=>setCalcOpen(!calcOpen)} className="pointer-events-auto bg-slate-800 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center border-4 border-slate-700">{calcOpen?<XCircle className="w-7 h-7"/>:<Calculator className="w-7 h-7"/>}</button></div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="bg-rose-50 px-6 py-3 border-b border-rose-200"><h2 className="font-semibold text-rose-900">Sachaufgabe</h2></div><div className="p-6 text-center">{loading?<RefreshCw className="w-8 h-8 animate-spin mx-auto text-rose-400"/>:<p className="text-xl font-medium">{prob?.text}</p>}</div></div>
+                        <StepCard title="1. Gesucht?" stepNum={1} currentStep={step} theme="rose" calcProps={cProps} errProps={errP} tip="Start, Ende oder Dauer?" success="Richtig!">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{t:'Wn',l:<VarWn/>,d:"Endwert"},{t:'W0',l:<VarW0/>,d:"Anfangswert"},{t:'t',l:<span className="font-serif italic text-xl">t</span>,d:"Dauer"}].map(i=><button key={i.t} onClick={()=>{if(step===1&&prob){setSelId(i.t);if(i.t===prob.type){setTimeout(()=>adv(2),600);}else trigErr();}}} disabled={step>1} className={`p-4 rounded-xl border-2 flex flex-col items-center ${selId===i.t?(i.t===prob?.type?'border-green-500 bg-green-50':'border-red-400 bg-red-50'):'border-slate-200'}`}><span className="text-xl font-bold">{i.l}</span><span className="text-xs">{i.d}</span></button>)}</div>
+                        </StepCard>
+                        <StepCard title="2. Formel aufstellen" stepNum={2} currentStep={step} theme="rose" calcProps={cProps} errProps={errP} tip="Exponent = t / T1/2" success="Richtig eingesetzt!" onCheck={step===2?chkInp:null}>
+                            {prob && <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300"><FormulaInput id="wn" label={<VarWn/>} value={inputs.wn} theme="rose" isUnknown={prob.type==='Wn'} status={inFb.wn} disabled={step>2||inFb.wn==='correct'} onChange={hc} /><span className="text-2xl mt-6">=</span><FormulaInput id="w0" label={<VarW0/>} value={inputs.w0} theme="rose" isUnknown={prob.type==='W0'} status={inFb.w0} disabled={step>2||inFb.w0==='correct'} onChange={hc} /><span className="text-2xl mt-6">·</span><div className="flex items-start mt-6"><div className="w-16 h-12 flex items-center justify-center font-bold text-xl text-rose-800 bg-rose-100 border-2 border-rose-300 rounded-lg">0,5</div><div className="flex flex-col items-center ml-1" style={{marginTop:'-24px'}}><div className="flex items-center gap-1"><span className="text-sm">t</span><MiniFormulaInput id="t" value={inputs.t} isUnknown={prob.type==='t'} status={inFb.t} disabled={step>2||inFb.t==='correct'} onChange={hc}/></div><div className="w-full border-b-2 border-slate-400 my-1"></div><div className="flex items-center gap-1"><span className="text-sm">T<sub>1/2</sub></span><MiniFormulaInput id="thalf" value={inputs.thalf} isUnknown={false} status={inFb.thalf} disabled={step>2||inFb.thalf==='correct'} onChange={hc}/></div></div></div></div>}
+                        </StepCard>
+                        <StepCard title="3. Umformen" stepNum={3} currentStep={step} theme="rose" calcProps={cProps} errProps={errP} tip="Nutze ggf. Logarithmus" success="Richtig!">
+                            {prob && <><div className="flex justify-center gap-2 text-xl font-mono bg-slate-100 py-4 rounded-lg mb-6"><span>{prob.type==='Wn'?<span className="text-rose-600 font-bold">Wn</span>:fDe(prob.wn)} = {prob.type==='W0'?<span className="text-rose-600 font-bold">W0</span>:fDe(prob.w0)} · 0,5<sup className="ml-1"><span className="inline-flex flex-col items-center text-[0.6em]"><span className="border-b border-slate-700 px-1">{prob.type==='t'?<span className="text-rose-600 font-bold">t</span>:prob.t}</span><span className="px-1">{prob.th}</span></span></sup></span></div>
+                            <div className="grid sm:grid-cols-2 gap-3">{opts.map(o=><button key={o.id} onClick={()=>{if(step===3){setSelOpt(o.id);if(o.c)setTimeout(()=>adv(4),600);else trigErr();}}} disabled={step>3} className={`p-4 rounded-xl border-2 font-medium ${selOpt===o.id?(o.c?'border-green-500 bg-green-50':'border-red-400 bg-red-50'):'border-slate-200'}`}>{o.l}</button>)}</div></>}
+                        </StepCard>
+                        <StepCard title="4. Berechnen" stepNum={4} currentStep={step} theme="rose" calcProps={cProps} errProps={errP} tip="Taschenrechner!" success="Perfekt!" onCheck={step===4?chkFin:null}>
+                            {prob && <div className="relative w-full"><span className="absolute left-4 top-1/2 -translate-y-1/2 font-serif text-slate-400 italic">{prob.type==='Wn'?<VarWn/>:prob.type==='W0'?<VarW0/>:'t'} =</span><input type="text" value={ans} onChange={e=>setAns(e.target.value.replace('.',','))} disabled={step===5} className={`pl-16 pr-12 py-3 w-full rounded-lg border-2 text-lg outline-none ${ansFb==='correct'?'border-green-500 bg-green-50':ansFb==='incorrect'?'border-red-400 bg-red-50':'border-slate-300'}`} /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">{prob.type==='t'?'':prob.u}</span></div>}
+                        </StepCard>
+                        {step === 5 && (
+                            <div className="bg-green-50 border-2 border-green-500 p-8 rounded-xl shadow-sm text-center animate-fade-in mt-6">
+                                {calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                <h3 className="text-3xl font-bold text-green-800 mb-3">Klasse gemacht! 🎉</h3>
+                                <div className="flex justify-center gap-4 mt-6"><button onClick={()=>setShowSol(!showSol)} className="text-slate-600 bg-white border px-6 py-3 rounded-lg shadow-sm">Lösungsweg</button><button onClick={genProb} className="bg-rose-600 text-white px-8 py-3 rounded-lg font-bold shadow-md">Nächste Aufgabe</button></div>
+                                {showSol && <div className="w-full bg-white p-6 rounded-xl border mt-6 text-sm font-mono whitespace-pre-line text-left shadow-inner">{prob.expl}</div>}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
 
-                const tolerance = problem.type === 'n' ? 0.5 : (problem.solution * 0.01);
-                const diff = Math.abs(val - problem.solution);
-                const isCorrect = diff <= tolerance || (problem.type === 'n' && Math.round(val) === problem.solution);
+        // --- BRUCHGLEICHUNGSTRAINER ---
+        const normStr = (s) => (s||"").toString().toLowerCase().replace(/\s+/g,'').replace(/,/g,'.').replace(/x2/g,'x^2').replace(/(^|[\+\-\=\(])1x/g,'$1x');
+        const chkMulti = (i, e) => { const ni=i.map(normStr).filter(x=>x!==""); const ne=e.map(normStr); if(ni.length!==ne.length)return false; const r=[...ne]; for(let v of ni){const idx=r.indexOf(v); if(idx===-1)return false; r.splice(idx,1);} return true; };
+        const fmtT = (c, f=false, v="") => c===0 ? "" : (c>0?(f?"":"+"):"-") + (Math.abs(c)===1&&v!==""?v:Math.abs(c)+v);
 
-                if (isCorrect) {
-                    setFinalFeedback('correct');
-                    setStreak(s => s + 1);
-                    setShowSolution(true);
-                    setStep(5);
-                } else {
-                    setFinalFeedback('incorrect');
-                    setStreak(0);
+        const genT1 = () => {
+            while(true) {
+                let x1=randI(-6,6)||1; let x2=randI(-6,6)||2; if(x1===x2||x1+x2===0)continue;
+                let p=-(x1+x2), q=x1*x2, C=randI(2,4), x_def=randI(1,5); if(x1===x_def||x2===x_def||x_def===0||x1===0||x2===0)continue;
+                let D=-C*x_def, A=D-C*p, B=-C*q; if(A===0)continue;
+                let ml=`${fmtT(A,true,'x')}${fmtT(B)}`; if(ml.startsWith('+'))ml=ml.substring(1);
+                return { id: Math.random(), diff: "Leicht", eq: ()=><div className="flex items-center text-xl font-math"><Frac top={`${fmtT(A,true,'x')} ${fmtT(B)}`.trim()} bot={`${C}x ${fmtT(D)}`} /><span className="mx-2">=</span><span>x</span></div>, steps: { def: { e: [String(x_def)], i: 1 }, hn: { e: [`${C}x${fmtT(D)}`, `${C}(x-${x_def})`] }, ml: { e: [ml] }, mr: { e: [`${C}x^2${fmtT(D,false,'x')}`, `x(${C}x ${fmtT(D)})`] }, zus: { e: [`x^2${fmtT(p,false,'x')}${fmtT(q)}=0`, `0=x^2${fmtT(p,false,'x')}${fmtT(q)}`] }, pqP: { e: [String(p)] }, pqQ: { e: [String(q)] }, pqX: { e: [String(x1), String(x2)], i: 2 }, lm: { e: [String(x1), String(x2)], i: 2 } } };
+            }
+        };
+        const genT2 = () => {
+            while(true) {
+                let A=randI(-8,8), B=randI(-8,8), C=randI(1,6); if(A===0||B===0||A+B+C===0)continue;
+                let p=-(A+B+C), q=A*C, D=p*p/4-q;
+                if(D>=0 && Number.isInteger(Math.sqrt(D))) {
+                    let rD=Math.sqrt(D), x1=-p/2+rD, x2=-p/2-rD;
+                    if(Number.isInteger(x1)&&Number.isInteger(x2)&&x1!==0&&x2!==0&&x1!==C&&x2!==C&&x1!==x2) {
+                        return { id: Math.random(), diff: "Mittel", eq: ()=><div className="flex items-center text-xl font-math"><Frac top={A} bot="x" /><span className="mx-2">{B>0?'+':'-'}</span><Frac top={Math.abs(B)} bot={`x ${fmtT(-C)}`} /><span className="mx-2">=</span><span>1</span></div>, steps: { def: { e: ["0",String(C)], i: 2 }, hn: { e: [`x(x-${C})`, `x^2-${C}x`] }, ml: { e: [`${A}(x${fmtT(-C)})${B>0?'+':''}${B}x`, `${fmtT(A+B,true,'x')}${fmtT(-A*C)}`] }, mr: { e: [`x^2${fmtT(-C,false,'x')}`, `x(x-${C})`] }, zus: { e: [`x^2${fmtT(p,false,'x')}${fmtT(q)}=0`, `0=x^2${fmtT(p,false,'x')}${fmtT(q)}`] }, pqP: { e: [String(p)] }, pqQ: { e: [String(q)] }, pqX: { e: [String(x1), String(x2)], i: 2 }, lm: { e: [String(x1), String(x2)], i: 2 } } };
+                    }
                 }
-            };
+            }
+        };
+        const HC = [
+            { id: 1, diff: "Prüfung 2018", eq: ()=><div className="flex items-center text-xl font-math"><Frac top="8x + 39" bot="4x - 12" /><span className="mx-2">=</span><span>x</span></div>, steps: { def: {e:["3"],i:1}, hn: {e:["4x-12","4(x-3)"]}, ml: {e:["8x+39"]}, mr: {e:["4x^2-12x","x(4x-12)"]}, zus: {e:["x^2-5x-9.75=0","0=x^2-5x-9.75"]}, pqP: {e:["-5"]}, pqQ: {e:["-9.75","-39/4"]}, pqX: {e:["6.5","-1.5"],i:2}, lm: {e:["6.5","-1.5"],i:2} } }
+        ];
 
-            useEffect(() => {
-                generateProblem();
-            }, []);
+        const BruchgleichungsTrainer = () => {
+            const [pl, setPl] = useState([genT1()]); const [pIdx, setPIdx] = useState(0); const [dSel, setDSel] = useState('leicht');
+            const [st, setSt] = useState({c:1, err:0, msg:"", tip:false}); const [str, setStr] = useState(()=>getStorage('sb',0));
+            const [inps, setInps] = useState({ d1:"", d2:"", hn:"", ml:"", mr:"", zus:"", pp:"", pq:"", ep1:"", ep2:"", eq:"", x1:"", x2:"", l1:"", l2:"" });
+            const [cO, setCO] = useState(false); const [cI, setCI] = useState("");
+            useEffect(() => { setStorage('sb', str); }, [str]); const prob = pl[pIdx];
 
-            const handleInputChange = (id, value) => {
-                setInputs(prev => ({ ...prev, [id]: value }));
-            };
+            const clr = () => { setCO(false); setSt({c:1,err:0,msg:"",tip:false}); setInps({d1:"",d2:"",hn:"",ml:"",mr:"",zus:"",pp:"",pq:"",ep1:"",ep2:"",eq:"",x1:"",x2:"",l1:"",l2:""}); };
+            const chgD = (d) => { setDSel(d); clr(); setPIdx(0); if(d==='leicht')setPl([genT1()]); else if(d==='mittel')setPl([genT2()]); else if(d==='schwer')setPl([genT2()]); else setPl(HC); }; // using T2 for schwer temporarily for safety
+            
+            const err = (m) => { setSt(p=>({...p, msg:m, err:p.err+1})); setStr(0); };
+            const adv = () => { setSt(p=>({c:p.c+1, err:0, msg:"", tip:false})); if(st.c+1>8){setStr(s=>s+1); triggerCelebration(setShowAnim);} };
+            const [showAnim, setShowAnim] = useState(false);
 
-            const handleKeyPressStep2 = (e) => {
-                if (e.key === 'Enter') checkFormulaInputs();
-            };
-            const handleKeyPressStep4 = (e) => {
-                if (e.key === 'Enter') checkFinalResult();
-            };
+            const v1 = () => { if(chkMulti([inps.d1,inps.d2].slice(0,prob.steps.def.i), prob.steps.def.e)) adv(); else err("Die Definitionsmenge ist falsch."); };
+            const v2 = () => { if(prob.steps.hn.e.map(normStr).includes(normStr(inps.hn))) adv(); else err("Der Hauptnenner stimmt nicht."); };
+            const v3 = () => { const l=prob.steps.ml.e.map(normStr).includes(normStr(inps.ml)), r=prob.steps.mr.e.map(normStr).includes(normStr(inps.mr)); if(l&&r) adv(); else err("Beim Multiplizieren verrechnet."); };
+            const v4 = () => { if(prob.steps.zus.e.map(normStr).includes(normStr(inps.zus))) adv(); else err("Die Normalform ist nicht korrekt."); };
+            const v5 = () => { if(normStr(inps.pp)===normStr(prob.steps.pqP.e[0]) && normStr(inps.pq)===normStr(prob.steps.pqQ.e[0])) adv(); else err("p oder q ist falsch."); };
+            const v6 = () => { if(normStr(inps.ep1)===normStr(prob.steps.pqP.e[0]) && normStr(inps.ep2)===normStr(prob.steps.pqP.e[0]) && normStr(inps.eq)===normStr(prob.steps.pqQ.e[0])) adv(); else err("Falsch eingesetzt."); };
+            const v7 = () => { if(chkMulti([inps.x1,inps.x2].slice(0,prob.steps.pqX.i), prob.steps.pqX.e)) adv(); else err("Das Ergebnis stimmt nicht."); };
+            const v8 = () => { if(chkMulti([inps.l1,inps.l2].slice(0,prob.steps.lm.i), prob.steps.lm.e)) adv(); else err("Vergleiche mit der Definitionsmenge!"); };
+
+            const TInp = ({ v, id, step, w="w-16", mono=false }) => <input type="text" value={v} onChange={e=>setInps(p=>({...p,[id]:e.target.value}))} className={`border-2 rounded p-2 text-center focus:outline-none transition-colors shadow-sm ${w} ${mono?'font-mono':''} ${st.c>step?'border-green-500 bg-green-50 text-green-900 font-bold':'border-slate-300 focus:border-amber-500'}`} disabled={st.c!==step} />;
+            const cProps = {calcOpen:cO, calcInput:cI, setCalcInput:setCI}; const eP = {errors:st.err, revealed:st.tip, setRevealed:(v)=>setSt(p=>({...p,tip:v}))};
 
             return (
-                <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-4 font-sans text-slate-800">
-                    <div className="max-w-3xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 flex flex-col">
-                        
-                        {/* Header */}
-                        <div className="bg-indigo-600 p-6 text-white flex justify-between items-center shrink-0">
-                            <div>
-                                <h1 className="text-2xl font-bold flex items-center gap-2">
-                                    <Calculator className="w-6 h-6" />
-                                    Wachstums-Profi
-                                </h1>
-                                <p className="text-indigo-100 text-sm mt-1">Mathe 10. Klasse: <VarWn/> = <VarW0/> · <VarQpowN/></p>
-                            </div>
-                            <div className="bg-indigo-700 px-3 py-1 rounded-lg text-sm font-semibold flex items-center gap-1">
-                                <TrendingUp className="w-4 h-4 text-green-300" /> Streak: {streak}
-                            </div>
-                        </div>
-
-                        {/* Content */}
-                        <div className="p-6 md:p-8 flex-grow space-y-8" onKeyDown={step === 2 ? handleKeyPressStep2 : step === 4 ? handleKeyPressStep4 : undefined}>
-                            {!loading && problem ? (
-                                <>
-                                    {/* Task Description */}
-                                    <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex justify-between mb-3">
-                                            <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${
-                                                problem.scenario === 'money' ? 'bg-green-100 text-green-700' :
-                                                problem.scenario === 'depreciation' ? 'bg-red-100 text-red-700' :
-                                                problem.scenario === 'bacteria' ? 'bg-purple-100 text-purple-700' :
-                                                'bg-blue-100 text-blue-700'
-                                            }`}>
-                                                {problem.scenario === 'money' ? 'Zinseszins' : 
-                                                problem.scenario === 'depreciation' ? 'Wertverlust' :
-                                                problem.scenario === 'population' ? 'Bevölkerung' : 'Biologie'}
-                                            </span>
-                                            <span className="text-xs font-bold text-indigo-500">
-                                                Schritt {step > 4 ? 4 : step} von 4
-                                            </span>
-                                        </div>
-                                        <p className="text-lg md:text-xl font-medium leading-relaxed">
-                                            {problem.text}
-                                        </p>
-                                    </div>
-
-                                    {/* Step 1: Identify Target */}
-                                    <div className={`transition-opacity duration-300 ${step === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                                        <p className="text-sm font-semibold text-slate-500 mb-4 text-center uppercase tracking-wide flex items-center justify-center gap-2">
-                                            <Search className="w-4 h-4"/> 1. Was ist in dieser Aufgabe gesucht?
-                                        </p>
-                                        
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                            {[
-                                                { type: 'Wn', label: <VarWn/>, desc: "Endwert" },
-                                                { type: 'W0', label: <VarW0/>, desc: "Anfangswert" },
-                                                { type: 'rate', label: <VarQ/>, desc: "Faktor/Prozent" },
-                                                { type: 'n', label: <VarN/>, desc: "Laufzeit" }
-                                            ].map((item) => (
-                                                <button
-                                                    key={item.type}
-                                                    onClick={() => handleIdentify(item.type)}
-                                                    disabled={step > 1}
-                                                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-1
-                                                        ${selectedIdentification === item.type 
-                                                            ? (item.type === problem.type 
-                                                                ? 'border-green-500 bg-green-50 text-green-900' 
-                                                                : 'border-red-400 bg-red-50 text-red-900')
-                                                            : 'border-slate-200 hover:border-indigo-300 bg-white hover:bg-slate-50'}
-                                                    `}
-                                                >
-                                                    <span className="text-xl font-serif font-bold">{item.label}</span>
-                                                    <span className="text-xs uppercase font-semibold text-slate-500">{item.desc}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                        {identificationFeedback === 'incorrect' && (
-                                            <p className="text-red-500 text-center mt-3 text-sm font-medium animate-pulse">
-                                                Lies den Text noch einmal genau. Was ist unbekannt?
-                                            </p>
-                                        )}
-                                        {identificationFeedback === 'correct' && step === 1 && (
-                                            <p className="text-green-600 text-center mt-3 text-sm font-bold animate-pulse">
-                                                Richtig erkannt!
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Step 2: Formula Mapping */}
-                                    {step >= 2 && (
-                                        <div className={`transition-opacity duration-500 animate-in fade-in slide-in-from-bottom-4 border-t pt-8 border-slate-100 ${step > 2 ? 'opacity-40 pointer-events-none' : ''}`}>
-                                            <p className="text-sm font-semibold text-slate-500 mb-4 text-center uppercase tracking-wide">
-                                            2. Fülle die gegebenen Werte in die Formel ein:
-                                            </p>
-                                            
-                                            <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-white p-6 rounded-xl border border-dashed border-slate-300">
-                                            <FormulaInput 
-                                                id="wn" label={<VarWn/>} value={inputs.wn} 
-                                                isUnknown={problem.type === 'Wn'} status={inputFeedback.wn || null}
-                                                disabled={step > 2 || inputFeedback.wn === 'correct'} onChange={handleInputChange}
-                                            />
-                                            <span className="text-2xl text-slate-400 font-bold mt-6">=</span>
-                                            <FormulaInput 
-                                                id="w0" label={<VarW0/>} value={inputs.w0} 
-                                                isUnknown={problem.type === 'W0'} status={inputFeedback.w0 || null}
-                                                disabled={step > 2 || inputFeedback.w0 === 'correct'} onChange={handleInputChange}
-                                            />
-                                            <span className="text-2xl text-slate-400 font-bold mt-6">·</span>
-                                            <FormulaInput 
-                                                id="q" label={<VarQ/>} value={inputs.q} 
-                                                isUnknown={problem.type === 'rate'} status={inputFeedback.q || null}
-                                                disabled={step > 2 || inputFeedback.q === 'correct'} onChange={handleInputChange}
-                                            />
-                                            <div className="relative -top-6">
-                                                <FormulaInput 
-                                                id="n" label={<span className="text-sm"><VarN/></span>} value={inputs.n} 
-                                                isUnknown={problem.type === 'n'} status={inputFeedback.n || null}
-                                                disabled={step > 2 || inputFeedback.n === 'correct'} onChange={handleInputChange}
-                                                />
-                                            </div>
-                                            </div>
-
-                                            {step === 2 && (
-                                            <div className="mt-4 flex justify-center">
-                                                <button 
-                                                onClick={checkFormulaInputs}
-                                                className="bg-slate-800 hover:bg-slate-900 text-white px-8 py-2 rounded-lg font-medium transition-colors"
-                                                >
-                                                Werte prüfen
-                                                </button>
-                                            </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Step 3: Transformation */}
-                                    {step >= 3 && (
-                                        <div className={`animate-in fade-in slide-in-from-bottom-4 duration-500 border-t pt-8 border-slate-100 ${step > 3 ? 'opacity-40 pointer-events-none' : ''}`}>
-                                            <p className="text-sm font-semibold text-slate-500 mb-4 text-center uppercase tracking-wide">
-                                            3. Wie formst du die Gleichung um?
-                                            </p>
-
-                                            <div className="flex justify-center items-center gap-2 text-xl md:text-2xl font-mono bg-slate-100 py-3 rounded-lg mb-6 text-slate-700">
-                                                <span>{problem.type === 'Wn' ? <span className="text-indigo-600 font-bold">Wn</span> : problem.wn}</span>
-                                                <span>=</span>
-                                                <span>{problem.type === 'W0' ? <span className="text-indigo-600 font-bold">W0</span> : problem.w0}</span>
-                                                <span>·</span>
-                                                <span>
-                                                {problem.type === 'rate' ? <span className="text-indigo-600 font-bold">q</span> : problem.q}
-                                                <sup>{problem.type === 'n' ? <span className="text-indigo-600 font-bold">n</span> : problem.n}</sup>
-                                                </span>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            {options.map((opt) => (
-                                                <button
-                                                key={opt.id}
-                                                onClick={() => handleOptionSelect(opt)}
-                                                disabled={step > 3}
-                                                className={`p-4 rounded-xl border-2 text-sm md:text-base font-medium transition-all text-center flex flex-col items-center justify-center gap-2 hover:bg-slate-50
-                                                    ${selectedOptionId === opt.id 
-                                                    ? (opt.isCorrect 
-                                                        ? 'border-green-500 bg-green-50 text-green-900' 
-                                                        : 'border-red-400 bg-red-50 text-red-900') 
-                                                    : 'border-slate-200 text-slate-600 hover:border-indigo-300'}
-                                                `}
-                                                >
-                                                    {selectedOptionId === opt.id && opt.isCorrect && <CheckCircle className="w-5 h-5 text-green-600 mb-1"/>}
-                                                    {selectedOptionId === opt.id && !opt.isCorrect && <XCircle className="w-5 h-5 text-red-500 mb-1"/>}
-                                                    {!selectedOptionId && <MousePointerClick className="w-5 h-5 text-slate-300 mb-1"/>}
-                                                    {opt.label}
-                                                </button>
-                                            ))}
-                                            </div>
-                                            {transformationFeedback === 'incorrect' && (
-                                                <p className="text-red-500 text-center mt-3 text-sm font-medium animate-pulse">
-                                                    Das führt nicht zum Ziel. Versuch es nochmal!
-                                                </p>
-                                            )}
-                                            {transformationFeedback === 'correct' && step === 3 && (
-                                                <p className="text-green-600 text-center mt-3 text-sm font-bold animate-pulse">
-                                                    Korrekt! Weiter geht's...
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Step 4: Calculation */}
-                                    {step >= 4 && (
-                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 border-t pt-8 border-slate-100">
-                                            <p className="text-sm font-semibold text-slate-500 mb-4 text-center uppercase tracking-wide">
-                                            4. Berechne das Ergebnis:
-                                            </p>
-                                            
-                                            <div className="flex flex-col items-center gap-4">
-                                            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                                                <div className="relative w-full sm:w-auto">
-                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-serif text-slate-400 italic">
-                                                    {problem.type === 'Wn' ? <VarWn/> : 
-                                                    problem.type === 'W0' ? <VarW0/> : 
-                                                    problem.type === 'rate' ? 'p' : <VarN/>} =
-                                                    </span>
-                                                    <input
-                                                    type="text"
-                                                    value={finalAnswer}
-                                                    onChange={(e) => setFinalAnswer(e.target.value)}
-                                                    disabled={step === 5}
-                                                    placeholder="Ergebnis..."
-                                                    className={`pl-16 pr-12 py-3 w-full sm:w-64 rounded-lg border-2 text-lg outline-none ${
-                                                        finalFeedback === 'correct' ? 'border-green-500 bg-green-50' : 
-                                                        finalFeedback === 'incorrect' ? 'border-red-400' : 'border-indigo-200 focus:border-indigo-500'
-                                                    }`}
-                                                    />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
-                                                    {problem.type === 'rate' ? '%' : problem.unit}
-                                                    </span>
-                                                </div>
-
-                                                {step === 4 && (
-                                                <button 
-                                                    onClick={checkFinalResult}
-                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2"
-                                                >
-                                                    Prüfen <ArrowRight className="w-5 h-5"/>
-                                                </button>
-                                                )}
-                                            </div>
-                                            
-                                            {step === 4 && !showCalculator && (
-                                                <button 
-                                                onClick={() => setShowCalculator(true)}
-                                                className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2"
-                                                >
-                                                    <Calculator className="w-4 h-4"/> Taschenrechner anzeigen
-                                                </button>
-                                            )}
-                                            
-                                            {showCalculator && step === 4 && (
-                                                <ScientificCalculator onClose={() => setShowCalculator(false)}/>
-                                            )}
-
-                                            {finalFeedback === 'incorrect' && (
-                                                <p className="text-red-500 text-center text-sm font-medium">Das Ergebnis stimmt nicht ganz. Überprüfe Rundung und Rechenweg.</p>
-                                            )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Solution */}
-                                    {step === 5 && (
-                                        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
-                                            <div className="bg-green-100 text-green-800 px-4 py-2 rounded-full font-bold flex items-center gap-2">
-                                                <CheckCircle className="w-5 h-5" /> Richtig gelöst!
-                                            </div>
-                                            
-                                            <div className="flex gap-4">
-                                                <button 
-                                                onClick={() => setShowSolution(!showSolution)}
-                                                className="text-slate-500 hover:text-indigo-600 flex items-center gap-2 text-sm"
-                                                >
-                                                <BookOpen className="w-4 h-4"/> Erklärung anzeigen
-                                                </button>
-                                                <button
-                                                onClick={generateProblem}
-                                                className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2"
-                                                >
-                                                <RefreshCw className="w-4 h-4" /> Nächste Aufgabe
-                                                </button>
-                                            </div>
-
-                                            {showSolution && (
-                                                <div className="w-full bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-2 text-sm font-mono whitespace-pre-line text-slate-700">
-                                                {problem.explanation}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                </>
-                            ) : (
-                                <div className="h-60 flex items-center justify-center text-slate-400">
-                                    Lade Aufgabe...
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-center text-xs text-slate-400 shrink-0">
-                            Entwickelt für den Mathematikunterricht in Bayern (10. Klasse).
-                        </div>
-                    </div>
+                <div className="page-transition max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    {showAnim && <CelebrationOverlay />}
+                    <header className="bg-amber-500 text-amber-950 shadow-md p-6 rounded-xl mb-6"><div className="flex justify-between items-center"><div className="flex items-center space-x-3"><FractionIcon className="w-8 h-8"/><h1 className="text-2xl font-bold">Bruchgleichungen</h1></div><div className="bg-amber-100 px-4 py-1.5 rounded-full font-bold">Streak: {str}</div></div></header>
+                    <div className="flex justify-center gap-3 mb-6 bg-white p-3 rounded-xl shadow-sm border border-slate-200"><div className="flex gap-2 flex-wrap justify-center">{['leicht','mittel','schwer','pruefung'].map(d=><button key={d} onClick={()=>chgD(d)} className={`px-4 py-2 font-bold rounded-lg ${dSel===d?'bg-amber-600 text-white':'bg-white text-slate-600 border'}`}>{d==='pruefung'?'Prüfung':d.charAt(0).toUpperCase()+d.slice(1)}</button>)}</div></div>
+                    <main className="space-y-6 relative">
+                        <div className="bg-white rounded-xl shadow-sm border overflow-hidden"><div className="bg-amber-50 px-6 py-3 border-b flex justify-between"><h2 className="font-semibold text-amber-900">Gegebene Gleichung</h2></div><div className="p-8 flex justify-center">{prob.eq()}</div></div>
+                        <div className="sticky top-20 z-40 flex justify-center w-full my-4 pointer-events-none"><button onClick={()=>setCO(!cO)} className="pointer-events-auto bg-slate-800 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center border-4">{cO?<XCircle className="w-7 h-7"/>:<Calculator className="w-7 h-7"/>}</button></div>
+                        <StepCard title="1. Definitionsmenge" stepNum={1} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Nenner = 0 setzen." success={`D = ℝ \\ {${prob.steps.def.e.map(fDe).join('; ')}}`}>
+                            <div className="flex items-center space-x-3 mb-2"><span className="font-semibold text-lg">D = ℝ \ {'{'}</span><TInp v={inps.d1} id="d1" step={1}/>{prob.steps.def.i===2&&<><span className="font-semibold">;</span><TInp v={inps.d2} id="d2" step={1}/></>}<span className="font-semibold text-lg">{'}'}</span>{st.c===1&&<SubmitBtn onClick={v1} theme="amber"/>}</div>
+                        </StepCard>
+                        {st.c>=2&&<StepCard title="2. Hauptnenner" stepNum={2} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Finde den gemeinsamen Nenner." success={`HN = ${prob.steps.hn.e[0]}`}><div className="flex items-center space-x-3 mb-2"><span className="font-semibold">HN =</span><TInp v={inps.hn} id="hn" step={2} w="w-64"/>{st.c===2&&<SubmitBtn onClick={v2} theme="amber"/>}</div></StepCard>}
+                        {st.c>=3&&<StepCard title="3. Durchmultiplizieren" stepNum={3} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Alles mit HN multiplizieren." success={`${prob.steps.ml.e[0]} = ${prob.steps.mr.e[0]}`}><div className="flex flex-wrap items-center gap-3 mb-2"><TInp v={inps.ml} id="ml" step={3} w="w-64"/><span className="font-bold">=</span><TInp v={inps.mr} id="mr" step={3} w="w-64"/>{st.c===3&&<SubmitBtn onClick={v3} theme="amber"/>}</div></StepCard>}
+                        {st.c>=4&&<StepCard title="4. Normalform" stepNum={4} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Bringe alles auf eine Seite = 0" success={prob.steps.zus.e[0]}><div className="flex items-center space-x-3 mb-2"><TInp v={inps.zus} id="zus" step={4} w="w-64" mono/>{st.c===4&&<SubmitBtn onClick={v4} theme="amber"/>}</div></StepCard>}
+                        {st.c>=5&&<StepCard title="5. p und q" stepNum={5} currentStep={st.c} calcProps={cProps} errProps={eP} tip="p (vor x), q (ohne x)" success={`p=${fDe(prob.steps.pqP.e[0])}, q=${fDe(prob.steps.pqQ.e[0])}`}><div className="flex items-center space-x-6 mb-2"><div className="flex items-center space-x-2"><span>p=</span><TInp v={inps.pp} id="pp" step={5}/></div><div className="flex items-center space-x-2"><span>q=</span><TInp v={inps.pq} id="pq" step={5}/></div>{st.c===5&&<SubmitBtn onClick={v5} theme="amber"/>}</div></StepCard>}
+                        {st.c>=6&&<StepCard title="6. In pq-Formel einsetzen" stepNum={6} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Vorzeichen mitnehmen!" success="Richtig!">
+                            <div className="flex flex-wrap items-center space-x-2 text-xl font-math bg-slate-50 p-4 border rounded-lg mb-2"><span>x₁,₂ = -</span><Frac top={<TInp v={inps.ep1} id="ep1" step={6}/>} bot="2"/><span className="mx-2">±</span><span className="text-4xl">√</span><div className="border-t-2 border-slate-800 flex items-center pt-1 mt-3 space-x-2"><span>(</span><Frac top={<TInp v={inps.ep2} id="ep2" step={6}/>} bot="2"/><span>)² - </span><TInp v={inps.eq} id="eq" step={6} w="w-20"/></div>{st.c===6&&<div className="ml-4"><SubmitBtn onClick={v6} theme="amber"/></div>}</div>
+                        </StepCard>}
+                        {st.c>=7&&<StepCard title="7. Ausrechnen" stepNum={7} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Rechne exakt." success={`x=${prob.steps.pqX.e.map(fDe).join(' oder ')}`}><div className="flex items-center space-x-6 mb-2"><div className="flex items-center space-x-2"><span>x₁=</span><TInp v={inps.x1} id="x1" step={7}/></div>{prob.steps.pqX.i===2&&<div className="flex items-center space-x-2"><span>x₂=</span><TInp v={inps.x2} id="x2" step={7}/></div>}{st.c===7&&<SubmitBtn onClick={v7} theme="amber"/>}</div></StepCard>}
+                        {st.c>=8&&<StepCard title="8. Lösungsmenge" stepNum={8} currentStep={st.c} calcProps={cProps} errProps={eP} tip="Definitionsmenge beachten!" success={`L = {${prob.steps.lm.e.map(fDe).join(';')}}`}>
+                            {prob.steps.lm.i<prob.steps.pqX.i&&<strong className="text-red-600 block mb-2">Achtung D!</strong>}<div className="flex items-center space-x-3 mb-2"><span className="font-semibold text-lg">L = {'{'}</span><TInp v={inps.l1} id="l1" step={8}/>{prob.steps.lm.i===2&&<><span className="font-semibold">;</span><TInp v={inps.l2} id="l2" step={8}/></>}<span className="font-semibold text-lg">{'}'}</span>{st.c===8&&<SubmitBtn onClick={v8} theme="amber"/>}</div>
+                        </StepCard>}
+                        {st.msg && st.c<=8 && !st.tip && <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded text-red-700">{st.msg}</div>}
+                        {st.c>8 && <div className="bg-green-50 border-2 border-green-500 p-8 rounded-xl text-center mt-6"><h3 className="text-3xl font-bold text-green-800 mb-6">Fertig! 🎉</h3><button onClick={()=>chgD(dSel)} className="bg-amber-500 text-white font-bold py-2.5 px-6 rounded-lg">Nächste Aufgabe</button></div>}
+                    </main>
                 </div>
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<WachstumsTrainer />);
+        // --- KOPFRECHENTRAINER ---
+        const gPrz = (d) => {
+            const p = d==='leicht'?[10,20,25,50][randI(0,3)]:d==='mittel'?[5,15,75][randI(0,2)]:[5,10,20,25][randI(0,3)];
+            const b = d==='leicht'||d==='mittel'?[20,40,50,100,200][randI(0,4)]:[2,3,4,5,8][randI(0,4)];
+            if(d==='schwer'){ const W=p*b, G=100*b, o=shuffleArray([G,G/2,G*2,W*10].map(fDe)); return { c:'Prozentrechnung', q:`${p}% einer Strecke sind ${W} km. Wie lang ist die Strecke (100%)?`, o, a:o.indexOf(fDe(G)), e:`1% = ${fDe(W/p)} km. 100% = ${fDe(G)} km.` }; }
+            const a = p*b/100, o = shuffleArray([a,a+5,Math.abs(a-5)||a+2,a*2].map(fDe));
+            return { c:'Prozentrechnung', q:`Berechne ${p}% von ${b}.`, o, a:o.indexOf(fDe(a)), e:`${b}/100 · ${p} = ${fDe(a)}` };
+        };
+        const gLin = (d) => {
+            const x=randI(1,8), a=randI(2,5), b=randI(1,10);
+            if(d==='leicht'){ const c=a*x+b, o=shuffleArray([x,x+1,x-1||x+2,x+3].map(n=>`x = ${n}`)); return {c:'Lineare Gleichungen', q:`Löse: ${a}x + ${b} = ${c}`, o, a:o.indexOf(`x = ${x}`), e:`${a}x = ${c-b} => x = ${x}`}; }
+            if(d==='mittel'){ const c=a*x-b, o=shuffleArray([x,x+1,x-1||x+2,x+3].map(n=>`x = ${n}`)); return {c:'Lineare Gleichungen', q:`Löse: ${a}x - ${b} = ${c}`, o, a:o.indexOf(`x = ${x}`), e:`${a}x = ${c+b} => x = ${x}`}; }
+            const c=randI(1,2), d_v=a*x+b-c*x, o=shuffleArray([x,x+1,Math.abs(x-1)||x+2,x+3].map(n=>`x = ${n}`)); return {c:'Lineare Gleichungen', q:`Löse: ${a}x + ${b} = ${c===1?'':c}x + ${d_v}`, o, a:o.indexOf(`x = ${x}`), e:`${a-c}x = ${d_v-b} => x = ${x}`};
+        };
+        const gBrc = (d) => {
+            if(d==='leicht'){ const isA=Math.random()>0.5; const o=shuffleArray([{e:<Frac top={isA?"3":"1"} bot={isA?"4":"2"}/>,id:'c'},{e:<Frac top="1" bot="4"/>,id:'w1'},{e:<Frac top="2" bot="6"/>,id:'w2'}]); return {c:'Bruchrechnen',q:<span>Was ergibt <Frac top={isA?"1":"3"} bot={isA?"2":"4"}/> {isA?'+':'-'} <Frac top="1" bot="4"/>?</span>, o:o.map(x=>x.e), a:o.findIndex(x=>x.id==='c'), e:"Hauptnenner ist 4."}; }
+            if(d==='mittel'){ const a=2,b=5,t=a+b,bt=a*b,o=shuffleArray([{e:<Frac top={t} bot={bt}/>,id:'c'},{e:<Frac top="2" bot={a+b}/>,id:'w1'},{e:<Frac top={t+1} bot={bt}/>,id:'w2'}]); return {c:'Bruchrechnen',q:<span>Addiere: <Frac top="1" bot={a}/> + <Frac top="1" bot={b}/></span>, o:o.map(x=>x.e), a:o.findIndex(x=>x.id==='c'), e:`Erweitern auf ${bt}.`}; }
+            const o=shuffleArray([{e:<Frac top="1" bot="2"/>,id:'c'},{e:<Frac top="5" bot="7"/>,id:'w1'},{e:<Frac top="6" bot="12"/>,id:'w2'}]); return {c:'Bruchrechnen',q:<span>Kürze: <Frac top="2" bot="3"/> · <Frac top="3" bot="4"/></span>, o:o.map(x=>x.e), a:o.findIndex(x=>x.id==='c'), e:"Zähler mal Zähler, Nenner mal Nenner, dann kürzen."};
+        };
+        const gGeo = (d) => {
+            const k=randI(2,5), k2=k*k, k3=k*k*k;
+            if(d==='leicht'){ const o=shuffleArray([`Faktor ${k2}`,`Faktor ${k*2}`,`Faktor ${k}`]); return {c:'Geometrie',q:`Seite mit k=${k} vergrößert. Faktor Fläche?`, o, a:o.indexOf(`Faktor ${k2}`), e:`Fläche wächst quadratisch: k² = ${k2}.`}; }
+            if(d==='mittel'){ const o=shuffleArray([`Faktor ${k3}`,`Faktor ${k*2}`,`Faktor ${k2}`]); return {c:'Geometrie',q:`Radius mit k=${k} vergrößert. Faktor Volumen?`, o, a:o.indexOf(`Faktor ${k3}`), e:`Volumen wächst kubisch: k³ = ${k3}.`}; }
+            const o=shuffleArray([`k = ${k}`,`k = ${k3}`,`k = ${k2}`]); return {c:'Geometrie',q:`Volumen vergrößert um ${k3}. Welches k?`, o, a:o.indexOf(`k = ${k}`), e:`3. Wurzel aus ${k3} ist ${k}.`};
+        };
+        const gPrb = (d) => {
+            if(d==='leicht'){ const t=10,r=randI(2,5),o=shuffleArray([{e:<Frac top={r} bot={t}/>,id:'c'},{e:<Frac top={r-1} bot={t}/>,id:'w1'},{e:<Frac top={t} bot={r}/>,id:'w2'}]); return {c:'Wahrscheinlichkeit',q:`${t} Kugeln, ${r} rot. Wahrscheinlichkeit rot?`,o:o.map(x=>x.e),a:o.findIndex(x=>x.id==='c'),e:`Günstige durch Alle.`}; }
+            if(d==='mittel'){ const t=[20,50][randI(0,1)],f=[{t:1,b:4,v:0.25},{t:1,b:5,v:0.2}][randI(0,1)],b=t*f.v; if(!Number.isInteger(b))return gPrb('mittel'); const o=shuffleArray([b,b+2,Math.abs(b-2)||1].map(n=>`${n} Kugeln`)); return {c:'Wahrscheinlichkeit',q:<span>{t} Kugeln, "Schwarz" ist <Frac top={f.t} bot={f.b}/>. Wie viele schwarze?</span>,o,a:o.indexOf(`${b} Kugeln`),e:`${t} / ${f.b} = ${b}`}; }
+            const o=shuffleArray([{e:<Frac top="3" bot="10"/>,id:'c'},{e:<Frac top="9" bot="25"/>,id:'w1'},{e:<Frac top="2" bot="5"/>,id:'w2'}]); return {c:'Wahrscheinlichkeit',q:`3 rote, 2 blaue. 2x OHNE Zurücklegen. P(rot, rot)?`,o:o.map(x=>x.e),a:o.findIndex(x=>x.id==='c'),e:<span><Frac top="3" bot="5"/> · <Frac top="2" bot="4"/> = <Frac top="3" bot="10"/></span>};
+        };
+        const gQud = (d) => {
+            if(d==='leicht'){ const c=randI(-4,4)||1, s=`S(0 | ${c})`, o=shuffleArray([s,`S(${c} | 0)`,`S(0 | ${-c})`]); return {c:'Quadratisch',q:<span>Scheitel von y = x² {c>0?'+ '+c:'- '+Math.abs(c)}?</span>,o,a:o.indexOf(s),e:"Nur y-Verschiebung."}; }
+            if(d==='mittel'){ const d_v=randI(1,4),e=randI(1,4),s=`S(${d_v} | ${e})`,o=shuffleArray([s,`S(${-d_v} | ${e})`,`S(${d_v} | ${-e})`]); return {c:'Quadratisch',q:<span>Scheitel von y = (x - {d_v})² + {e}?</span>,o,a:o.indexOf(s),e:"S(d|e). Vorzeichen dreht sich!"}; }
+            const xs=randI(1,3),ys=randI(1,3),p=-2*xs,q=xs*xs+ys,s=`S(${xs} | ${ys})`,o=shuffleArray([s,`S(${-xs} | ${ys})`,`S(${xs} | ${-ys})`]); return {c:'Quadratisch',q:<span>Scheitel von y = x² {p>0?'+ '+p:'- '+Math.abs(p)}x + {q}?</span>,o,a:o.indexOf(s),e:`xs = -p/2 = ${xs}. Einsetzen liefert ys = ${ys}.`};
+        };
+        const gPot = (d) => {
+            if(d==='leicht'){ const a=randI(2,4),b=randI(2,4),o=shuffleArray([{e:<span>x<sup>{a+b}</sup></span>,id:'c'},{e:<span>x<sup>{a*b}</sup></span>,id:'w1'},{e:<span>2x<sup>{a+b}</sup></span>,id:'w2'}]); return {c:'Potenzgesetze',q:<span>Fasse zusammen: x<sup>{a}</sup> · x<sup>{b}</sup></span>,o:o.map(x=>x.e),a:o.findIndex(x=>x.id==='c'),e:"Exponenten werden addiert."}; }
+            if(d==='mittel'){ const a=randI(2,4),b=randI(2,4),o=shuffleArray([{e:<span>x<sup>{a*b}</sup></span>,id:'c'},{e:<span>x<sup>{a+b}</sup></span>,id:'w1'},{e:<span>x<sup>{Math.pow(a,b)}</sup></span>,id:'w2'}]); return {c:'Potenzgesetze',q:<span>Fasse zusammen: (x<sup>{a}</sup>)<sup>{b}</sup></span>,o:o.map(x=>x.e),a:o.findIndex(x=>x.id==='c'),e:"Exponenten werden multipliziert."}; }
+            const b=2,e=-randI(2,3),a=Math.pow(b,Math.abs(e)),o=shuffleArray([{e:<Frac top="1" bot={a}/>,id:'c'},{e:`-${a}`,id:'w1'},{e:String(a),id:'w2'}]); return {c:'Potenzgesetze',q:<span>Berechne: {b}<sup>{e}</sup></span>,o:o.map(x=>x.e),a:o.findIndex(x=>x.id==='c'),e:`Negativer Exponent: 1 / ${b} hoch ${Math.abs(e)}.`};
+        };
+        const gDef = (d) => {
+            if(d==='leicht'){ const a=randI(-4,4)||1,v=-a,c=`D = ℝ \\ {${v}}`,o=shuffleArray([c,`D = ℝ \\ {${-v}}`,`D = ℝ \\ {0}`]); return {c:'Definitionsmenge',q:<span>D für <Frac top="1" bot={`x ${a>0?'+ '+a:'- '+Math.abs(a)}`}/> ?</span>,o,a:o.indexOf(c),e:"Nenner = 0 setzen."}; }
+            if(d==='mittel'){ const a=randI(1,3),b=a+randI(1,2),c=`D = ℝ \\ {${a}; ${b}}`,o=shuffleArray([c,`D = ℝ \\ {${-a}; ${-b}}`,`D = ℝ \\ {${a}}`]); return {c:'Definitionsmenge',q:<span>D für <Frac top="1" bot={`(x-${a})(x-${b})`}/> ?</span>,o,a:o.indexOf(c),e:`Wird 0 bei ${a} und ${b}.`}; }
+            const a=randI(2,4),a2=a*a,c=`D = ℝ \\ {${-a}; ${a}}`,o=shuffleArray([c,`D = ℝ \\ {${a2}}`,`D = ℝ \\ {${a}}`]); return {c:'Definitionsmenge',q:<span>D für <Frac top="1" bot={`x² - ${a2}`}/> ?</span>,o,a:o.indexOf(c),e:`x² = ${a2} gilt für ${a} und ${-a}.`};
+        };
+        const gens = [{i:'prozent',f:gPrz},{i:'linear',f:gLin},{i:'bruch',f:gBrc},{i:'geo',f:gGeo},{i:'prob',f:gPrb},{i:'quad',f:gQud},{i:'potenz',f:gPot},{i:'def',f:gDef}];
+        const genK = (d, lId) => { const a = gens.filter(g=>g.i!==lId); const s = a[Math.floor(Math.random()*a.length)]; return {...s.f(d), cId:s.i}; };
+
+        const KopfrechenTrainer = () => {
+            const [diff, setDiff] = useState('mittel'); const [q, setQ] = useState(() => genK('mittel', null));
+            const [sel, setSel] = useState(null); const [chk, setChk] = useState(false); const [tip, setTip] = useState(false);
+            const [str, setStr] = useState(() => getStorage('sk', 0)); const [anim, setAnim] = useState(false);
+            useEffect(() => { setStorage('sk', str); }, [str]);
+            const cD = (d) => { setDiff(d); setQ(genK(d, q?.cId)); setSel(null); setChk(false); setTip(false); };
+            const cA = () => { if(sel===null)return; setChk(true); if(sel===q.a && !tip){setStr(s=>s+1);if((str+1)%6===0)triggerCelebration(setAnim);}else setStr(0); };
+            const nQ = () => { setQ(genK(diff, q.cId)); setSel(null); setChk(false); setTip(false); };
+            const getCls = (i) => { if(!chk)return sel===i?'border-sky-500 bg-sky-50 ring-2 ring-sky-200':'border-slate-200 hover:border-sky-300 bg-white'; if(i===q.a)return 'border-green-500 bg-green-50 text-green-800 ring-2'; if(i===sel)return 'border-red-500 bg-red-50 text-red-800 ring-2'; return 'border-slate-200 opacity-50 bg-white'; };
+
+            return (
+                <div className="page-transition max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    {anim && <CelebrationOverlay />}
+                    <header className="bg-sky-500 text-sky-950 shadow-md p-6 rounded-xl mb-6"><div className="flex justify-between items-center"><div className="flex items-center space-x-3 text-white"><CalculatorOff className="w-8 h-8"/><h1 className="text-2xl font-bold">Kopfrechnen</h1></div><div className="bg-sky-600 px-4 py-1.5 rounded-full font-bold text-white">Streak: {str}</div></div></header>
+                    <div className="flex justify-center gap-3 mb-6 bg-white p-3 rounded-xl shadow-sm border"><div className="flex gap-2">{['leicht','mittel','schwer'].map(d=><button key={d} onClick={()=>cD(d)} className={`px-4 py-2 font-bold rounded-lg ${diff===d?'bg-sky-500 text-white':'bg-white text-slate-600 border'}`}>{d.charAt(0).toUpperCase()+d.slice(1)}</button>)}</div></div>
+                    <main className="space-y-6">
+                        <div className="bg-white rounded-3xl shadow-md overflow-hidden border">
+                            <div className="bg-sky-50 px-6 py-4 border-b flex justify-between items-center"><div className="flex items-center text-sky-900 font-bold"><BookOpen className="w-5 h-5 mr-2" />{q.c}</div></div>
+                            <div className="p-6 md:p-8">
+                                <h2 className="text-xl md:text-2xl font-semibold mb-8">{q.q}</h2>
+                                <div className="grid sm:grid-cols-2 gap-3 mb-8">{q.o.map((o,i)=><button key={i} onClick={()=>!chk&&setSel(i)} disabled={chk} className={`text-left p-4 rounded-xl border-2 transition-all flex justify-between items-center ${getCls(i)}`}><span>{o}</span>{chk&&i===q.a&&<CheckCircle className="w-6 h-6 text-green-500"/>}{chk&&i===sel&&i!==q.a&&<XCircle className="w-6 h-6 text-red-500"/>}</button>)}</div>
+                                {!chk && <div className="mb-6">{!tip?<button onClick={()=>{setTip(true);setStr(0);}} className="text-sky-600 bg-sky-50 px-4 py-2 rounded-lg font-medium flex items-center border">Lösungsweg anzeigen (Tipp)</button>:<div className="bg-sky-50 border-l-4 border-sky-500 p-4 rounded text-sm flex"><div><strong className="block mb-1">Tipp:</strong> {q.e}</div></div>}</div>}
+                                {chk && <div className="mb-8 p-5 bg-sky-50 border rounded-xl flex gap-4"><div><h3 className="font-bold uppercase tracking-wider text-xs">Erklärung</h3><p className="font-medium mt-1">{q.e}</p></div></div>}
+                                <div className="flex justify-between border-t pt-6">
+                                    {!chk ? <><button onClick={()=>{setStr(0);nQ();}} className="text-slate-500 font-medium">Überspringen</button><button onClick={cA} disabled={sel===null} className={`py-3 px-8 rounded-xl font-bold text-white ${sel!==null?'bg-sky-500':'bg-slate-300'}`}>Prüfen</button></> : <button onClick={nQ} className="w-full py-4 rounded-xl font-bold bg-slate-800 text-white">Nächste Aufgabe</button>}
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        // --- STATIC PAGES & ROUTER ---
+        const HomePage = ({ n }) => (
+            <div className="page-transition">
+                <section className="bg-gradient-to-b from-indigo-50 to-slate-50 py-16 border-b"><div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row items-center gap-8"><img src="Logo-sMArTH.png" alt="Logo" className="w-64" /><div className="text-center md:text-left"><h2 className="text-3xl font-bold text-slate-900 mb-4">Übungsseite für die 10. Klasse Mittelschule in Bayern!</h2><p className="text-slate-600">Interaktive Mathetrainer zur Prüfungsvorbereitung.</p></div></div></section>
+                <section className="max-w-5xl mx-auto px-4 py-16"><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div onClick={()=>n('wachstum')} className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-xl cursor-pointer text-center"><div className="w-16 h-16 bg-emerald-100 text-emerald-600 mx-auto rounded-xl flex items-center justify-center mb-4"><TrendingUp/></div><h4 className="font-bold mb-2">Wachstum</h4><p className="text-sm text-slate-600">Zinseszins & mehr</p></div>
+                    <div onClick={()=>n('zerfall')} className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-xl cursor-pointer text-center"><div className="w-16 h-16 bg-rose-100 text-rose-600 mx-auto rounded-xl flex items-center justify-center mb-4"><TrendingDown/></div><h4 className="font-bold mb-2">Halbwertszeit</h4><p className="text-sm text-slate-600">Radioaktivität</p></div>
+                    <div onClick={()=>n('gleichungen')} className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-xl cursor-pointer text-center"><div className="w-16 h-16 bg-amber-100 text-amber-600 mx-auto rounded-xl flex items-center justify-center mb-4"><FractionIcon/></div><h4 className="font-bold mb-2">Bruchgleichungen</h4><p className="text-sm text-slate-600">Mit pq-Formel</p></div>
+                    <div onClick={()=>n('kopfrechnen')} className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-xl cursor-pointer text-center"><div className="w-16 h-16 bg-sky-100 text-sky-600 mx-auto rounded-xl flex items-center justify-center mb-4"><CalculatorOff/></div><h4 className="font-bold mb-2">Kopfrechnen</h4><p className="text-sm text-slate-600">Für den MSA</p></div>
+                </div></section>
+            </div>
+        );
+
+        const ImpressumPage = ({ n }) => <div className="page-transition max-w-3xl mx-auto px-4 py-16"><h1 className="text-3xl font-bold mb-8">Impressum</h1><div className="bg-white p-8 rounded-2xl border mb-8"><p>Martin Geiger<br/>Beratung digitale Bildung<br/>Eduard-Ziegler-Str. 3<br/>85221 Dachau</p></div><button onClick={()=>n('home')} className="border px-4 py-2 rounded">Zurück</button></div>;
+        const DatenschutzPage = ({ n }) => <div className="page-transition max-w-3xl mx-auto px-4 py-16"><h1 className="text-3xl font-bold mb-8">Datenschutz</h1><div className="bg-white p-8 rounded-2xl border mb-8"><p>Es werden keine persönlichen Daten erhoben. Streaks werden lokal im Browser gespeichert.</p></div><button onClick={()=>n('home')} className="border px-4 py-2 rounded">Zurück</button></div>;
+
+        const App = () => {
+            const [cP, sCP] = useState('home'); const [mM, sMM] = useState(false);
+            useEffect(() => { window.scrollTo(0, 0); sMM(false); }, [cP]);
+            const NB = ({ id, l }) => <button onClick={()=>sCP(id)} className={`px-3 py-2 rounded-lg font-medium ${cP===id?'text-indigo-600 bg-indigo-50':'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'}`}>{l}</button>;
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    <header className="bg-white shadow-sm sticky top-0 z-50 border-b"><div className="max-w-[1200px] mx-auto px-4 h-16 flex items-center justify-between"><button onClick={()=>sCP('home')}><img src="Logo-sMArTH.png" className="h-8" /></button><a href="https://ms-dachau-sued.de/" target="_blank" rel="noopener noreferrer"><img src="LogoMSsued2.jpg" className="h-8 rounded" /></a><div className="flex items-center"><nav className="hidden lg:flex"><NB id="home" l="Start"/><NB id="wachstum" l="Wachstum"/><NB id="zerfall" l="Zerfall"/><NB id="gleichungen" l="Bruchgleichungen"/><NB id="kopfrechnen" l="Kopfrechnen"/></nav><button onClick={()=>sMM(!mM)} className="lg:hidden p-2"><MenuIcon className="w-6 h-6"/></button></div></div>{mM&&<div className="lg:hidden bg-white border-t p-4 flex flex-col absolute w-full z-50"><NB id="home" l="Startseite"/><NB id="wachstum" l="Wachstum"/><NB id="zerfall" l="Halbwertszeit"/><NB id="gleichungen" l="Bruchgleichungen"/><NB id="kopfrechnen" l="Kopfrechnen"/></div>}</header>
+                    <main className="flex-grow">{cP==='home'&&<HomePage n={sCP}/>}{cP==='wachstum'&&<WachstumsTrainer/>}{cP==='zerfall'&&<ZerfallsTrainer/>}{cP==='gleichungen'&&<BruchgleichungsTrainer/>}{cP==='kopfrechnen'&&<KopfrechenTrainer/>}{cP==='impressum'&&<ImpressumPage n={sCP}/>}{cP==='datenschutz'&&<DatenschutzPage n={sCP}/>}</main>
+                    <footer className="bg-slate-900 text-slate-400 py-10 mt-auto"><div className="max-w-5xl mx-auto px-4 text-center"><p className="text-xs max-w-2xl mx-auto mb-6">Für die Richtigkeit der generierten Aufgaben keine Garantie.<br/><br/>Quelle Prüfungsaufgaben Bruchgleichungen: <a href="https://www.bycs.de/pruefungsarchiv" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-300">Prüfungsarchiv (bycs.de)</a></p><div className="border-t border-slate-800 pt-6 flex flex-col md:flex-row justify-between items-center text-sm"><div>&copy; 2026 - Martin Geiger</div><div className="flex gap-4"><button onClick={()=>sCP('impressum')} className="hover:text-white">Impressum</button><span>|</span><button onClick={()=>sCP('datenschutz')} className="hover:text-white">Datenschutz</button></div></div></div></footer>
+                </div>
+            );
+        };
+        const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);
     </script>
 </body>
 </html>
