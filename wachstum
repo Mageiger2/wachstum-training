@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="de" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sMArTHEMATIK - Wachstum & Zerfall</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        .page-transition { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes flyInStayFade { 0% { transform: scale(0.2) translateY(50vh); opacity: 0; } 15% { transform: scale(1.1) translateY(0); opacity: 1; } 25% { transform: scale(1) translateY(0); opacity: 1; } 75% { transform: scale(1) translateY(0); opacity: 1; } 100% { transform: scale(1.5) translateY(-30vh); opacity: 0; } }
+        .animate-fly-logo { animation: flyInStayFade 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        body { background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .font-math { font-family: 'Times New Roman', Times, serif; }
+    </style>
+</head>
+<body class="text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+    <div id="root" class="flex flex-col min-h-screen"></div>
+
+    <script type="text/babel" data-presets="typescript,react">
+        const { useState, useEffect } = React;
+
+        // ==========================================
+        // 1. ICONS
+        // ==========================================
+        const IconBase = ({ path, className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
+        const Calculator = ({ className }) => <IconBase className={className} path={<><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>} />;
+        const CalculatorOff = ({ className }) => <IconBase className={className} path={<><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/><line x1="2" y1="2" x2="22" y2="22"/></>} />;
+        const CheckCircle = ({ className }) => <IconBase className={className} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />;
+        const XCircle = ({ className }) => <IconBase className={className} path={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>} />;
+        const RefreshCw = ({ className }) => <IconBase className={className} path={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>} />;
+        const BookOpen = ({ className }) => <IconBase className={className} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />;
+        const TrendingUp = ({ className }) => <IconBase className={className} path={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>} />;
+        const TrendingDown = ({ className }) => <IconBase className={className} path={<><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></>} />;
+        const ArrowRight = ({ className }) => <IconBase className={className} path={<><line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/></>} />;
+        const ChevronRight = ({ className }) => <IconBase className={className} path={<><polyline points="9 18 15 12 9 6"/></>} />;
+        const HomeIcon = ({ className }) => <IconBase className={className} path={<><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>} />;
+        const MenuIcon = ({ className }) => <IconBase className={className} path={<><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></>} />;
+        const Shield = ({ className }) => <IconBase className={className} path={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>} />;
+        const FileText = ({ className }) => <IconBase className={className} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></>} />;
+        const DeleteIcon = ({ className }) => <IconBase className={className} path={<><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></>} />;
+        const HelpCircle = ({ className }) => <IconBase className={className} path={<><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />;
+        const FastForward = ({ className }) => <IconBase className={className} path={<><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></>} />;
+        const Target = ({ className }) => <IconBase className={className} path={<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>} />;
+        const FractionIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <line x1="4" x2="20" y1="12" y2="12"/><path d="M11 7 L12 5 L12 9" /><path d="M10 15 L14 19 M14 15 L10 19" />
+            </svg>
+        );
+
+        // ==========================================
+        // 2. SHARED HELPERS & COMPONENTS
+        // ==========================================
+        const getStorage = (key, def) => { try { return parseInt(localStorage.getItem(key)) || def; } catch(e) { return def; } };
+        const setStorage = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+        const triggerCelebration = (setShowAnim) => { confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, zIndex: 101 }); setShowAnim(true); setTimeout(() => setShowAnim(false), 3500); };
+        const CelebrationOverlay = () => ( <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"> <img src="Logo-sMArTH.png" className="w-[80vw] max-w-md drop-shadow-2xl animate-fly-logo bg-white/80 p-4 rounded-3xl backdrop-blur-sm" alt="Logo" onError={(e)=>{e.target.style.display='none'}} /> </div> );
+        
+        const themeColors = {
+            emerald: { activeBorder: 'border-emerald-500', activeBg: 'bg-emerald-50', activeTitle: 'text-emerald-900', badgeBg: 'bg-emerald-600', shadow: 'shadow-emerald-100', btnBg: 'bg-emerald-600', btnHover: 'hover:bg-emerald-700' },
+            rose: { activeBorder: 'border-rose-400', activeBg: 'bg-rose-50', activeTitle: 'text-rose-900', badgeBg: 'bg-rose-500', shadow: 'shadow-rose-100', btnBg: 'bg-rose-500', btnHover: 'hover:bg-rose-600' },
+            amber: { activeBorder: 'border-amber-400', activeBg: 'bg-amber-50', activeTitle: 'text-amber-900', badgeBg: 'bg-amber-500', shadow: 'shadow-amber-100', btnBg: 'bg-amber-500', btnHover: 'hover:bg-amber-600' },
+            sky: { activeBorder: 'border-sky-400', activeBg: 'bg-sky-50', activeTitle: 'text-sky-900', badgeBg: 'bg-sky-500', shadow: 'shadow-sky-100', btnBg: 'bg-sky-500', btnHover: 'hover:bg-sky-600' }
+        };
+
+        const Frac = ({ top, bot }) => <span className="inline-flex flex-col items-center align-middle mx-1 px-1"><span className="border-b-[1.5px] border-current px-1 pb-0.5 w-full text-center leading-none">{top}</span><span className="px-1 pt-0.5 text-center leading-none">{bot}</span></span>;
+        const formatNum = (num) => { if (num === null || num === undefined) return ""; return num.toString().replace('.', ','); };
+        const VarWn = () => <span>W<sub>n</sub></span>; const VarW0 = () => <span>W<sub>0</sub></span>; const VarQ = () => <span>q</span>; const VarN = () => <span>n</span>; const VarQpowN = () => <span>q<sup>n</sup></span>;
+
+        const StepCard = ({ title, stepNum, currentStep, theme = 'amber', children }) => {
+            const isPast = currentStep > stepNum; const isActive = currentStep === stepNum; const t = themeColors[theme];
+            return (
+                <div className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition-all duration-300 ${isActive ? `${t.activeBorder} ${t.shadow}` : isPast ? 'border-green-200' : 'border-slate-200 opacity-50'}`}>
+                    <div className={`px-5 py-3 border-b flex items-center ${isActive ? `${t.activeBg} border-opacity-50` : isPast ? 'bg-green-50 border-green-100' : 'bg-slate-50 border-slate-200'}`}>
+                        {isPast ? <CheckCircle className="text-green-500 mr-3 w-6 h-6 shrink-0" /> : <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold mr-3 shrink-0 ${isActive ? `${t.badgeBg} text-white` : 'bg-slate-300 text-slate-500'}`}>{stepNum}</div>}
+                        <h3 className={`font-bold text-lg ${isActive ? t.activeTitle : isPast ? 'text-green-900' : 'text-slate-500'}`}>{title}</h3>
+                    </div>
+                    <div className={`p-5 ${!isActive && !isPast ? 'hidden' : ''}`}>{children}</div>
+                </div>
+            );
+        };
+
+        const SubmitBtn = ({ onClick, theme = 'amber' }) => {
+            const t = themeColors[theme];
+            return <button onClick={onClick} className={`${t.btnBg} ${t.btnHover} text-white p-2.5 rounded shadow flex items-center transition-colors`} title="Überprüfen"><ArrowRight className="w-5 h-5" /></button>;
+        };
+
+        const SuccessMark = ({ text }) => ( <div className="mt-4 text-green-700 font-medium flex items-center bg-green-50 px-3 py-2 rounded-lg border border-green-100 inline-flex"><CheckCircle className="w-5 h-5 mr-2 text-green-600 shrink-0" /> {text}</div> );
+        
+        const TipBox = ({ errors, revealed, setRevealed, text }) => {
+            if (errors < 3) return null;
+            if (!revealed) return <button onClick={() => setRevealed(true)} className="mt-4 text-amber-600 bg-amber-50 hover:bg-amber-100 px-4 py-2 rounded-lg font-medium flex items-center transition-colors border border-amber-200 animate-fade-in"><HelpCircle className="w-5 h-5 mr-2" /> Hier gibt es einen Tipp</button>;
+            return <div className="mt-4 bg-amber-50 border-l-4 border-amber-500 p-4 rounded shadow-sm text-amber-900 text-sm animate-fade-in flex"><HelpCircle className="w-6 h-6 mr-3 shrink-0 text-amber-600" /><div><strong className="block mb-1 text-amber-800">Tipp:</strong> {text}</div></div>;
+        };
+
+        const FormulaInput = ({ id, label, value, isUnknown, status, disabled, onChange, theme = "emerald" }) => {
+            const isRose = theme === 'rose'; const isEmerald = theme === 'emerald';
+            return (
+                <div className="flex flex-col items-center">
+                    <div className="mb-1 text-slate-500 font-serif italic text-lg">{label}</div>
+                    {isUnknown ? (
+                        <div className={`w-20 md:w-24 h-12 rounded-lg border-2 flex items-center justify-center font-bold select-none shadow-sm ${isRose ? 'border-rose-300 bg-rose-50 text-rose-400' : isEmerald ? 'border-emerald-300 bg-emerald-50 text-emerald-400' : 'border-amber-300 bg-amber-50 text-amber-400'}`}>?</div>
+                    ) : (
+                        <div className="relative">
+                            <input type="text" value={value} disabled={disabled} onChange={(e) => onChange(id, e.target.value)} className={`w-20 md:w-24 h-12 text-center rounded-lg border-2 text-lg outline-none transition-colors shadow-sm ${status === 'correct' ? 'border-green-500 bg-green-50 text-green-900 font-bold' : status === 'incorrect' ? 'border-red-400 bg-red-50' : `border-slate-300 focus:border-${theme}-500 focus:ring-2 focus:ring-${theme}-200`}`} placeholder="..." />
+                            {status === 'correct' && <CheckCircle className="w-5 h-5 text-green-600 absolute -top-2 -right-2 bg-white rounded-full shadow-sm" />}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const CalculatorPanel = ({ calcInput, setCalcInput }) => {
+            const handleEval = () => {
+                try {
+                    let safeStr = calcInput.replace(/,/g, '.');
+                    const sin = (x) => Math.sin(x * Math.PI / 180); const cos = (x) => Math.cos(x * Math.PI / 180); const tan = (x) => Math.tan(x * Math.PI / 180);
+                    const log10 = Math.log10; const logb = (b, v) => Math.log(v) / Math.log(b); const sqrt = Math.sqrt; const π = Math.PI; const e = Math.E;
+                    let parsed = safeStr.replace(/×/g, '*').replace(/÷/g, '/').replace(/\^/g, '**').replace(/log₁₀\(/g, 'log10(').replace(/logᵦ\(/g, 'logb(').replace(/√\(/g, 'sqrt(');
+                    let res = new Function('sin', 'cos', 'tan', 'log10', 'logb', 'sqrt', 'π', 'e', `return (${parsed})`)(sin, cos, tan, log10, logb, sqrt, π, e);
+                    res = Math.round(res * 10000000) / 10000000;
+                    setCalcInput(res.toString().replace('.', ','));
+                } catch(err) { setCalcInput("Fehler"); setTimeout(() => setCalcInput(""), 1000); }
+            };
+            const btnNum = "bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold p-2 sm:p-3 rounded shadow-sm transition-colors text-lg sm:text-xl";
+            const btnOp = "bg-amber-500 hover:bg-amber-600 text-white font-bold p-2 sm:p-3 rounded shadow-sm transition-colors text-lg sm:text-xl";
+            const btnTop = "bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold p-2 sm:p-3 rounded shadow-sm transition-colors text-sm sm:text-lg flex items-center justify-center";
+            return (
+                <div className="bg-slate-800 rounded-xl shadow-inner p-4 w-full max-w-sm mx-auto mb-6 border border-slate-700 animate-fade-in">
+                    <div className="bg-slate-100 p-3 rounded-lg text-right text-2xl sm:text-3xl font-mono mb-4 overflow-hidden shadow-inner h-16 flex items-center justify-end">{calcInput || "0"}</div>
+                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                        <button onClick={() => setCalcInput(p => p+'sin(')} className={btnTop}>sin</button><button onClick={() => setCalcInput(p => p+'cos(')} className={btnTop}>cos</button><button onClick={() => setCalcInput(p => p+'tan(')} className={btnTop}>tan</button><button onClick={() => setCalcInput(p => p+'π')} className={btnTop}>π</button><button onClick={() => setCalcInput(p => p+'e')} className={btnTop}>e</button>
+                        <button onClick={() => setCalcInput(p => p+'log₁₀(')} className={btnTop}>log₁₀</button><button onClick={() => setCalcInput(p => p+'logᵦ(')} className={btnTop}>logᵦ</button><button onClick={() => setCalcInput(p => p+'√(')} className={btnTop}>√</button><button onClick={() => setCalcInput(p => p+'^')} className={btnTop}>xʸ</button><button onClick={() => setCalcInput(p => p.slice(0, -1))} className="bg-red-500 hover:bg-red-600 text-white font-bold p-2 sm:p-3 rounded shadow-sm transition-colors flex items-center justify-center"><DeleteIcon className="w-5 h-5"/></button>
+                        <button onClick={() => setCalcInput(p => p+'7')} className={btnNum}>7</button><button onClick={() => setCalcInput(p => p+'8')} className={btnNum}>8</button><button onClick={() => setCalcInput(p => p+'9')} className={btnNum}>9</button><button onClick={() => setCalcInput(p => p+'(')} className={btnTop}>( </button><button onClick={() => setCalcInput(p => p+'÷')} className={btnOp}>÷</button>
+                        <button onClick={() => setCalcInput(p => p+'4')} className={btnNum}>4</button><button onClick={() => setCalcInput(p => p+'5')} className={btnNum}>5</button><button onClick={() => setCalcInput(p => p+'6')} className={btnNum}>6</button><button onClick={() => setCalcInput(p => p+')')} className={btnTop}> )</button><button onClick={() => setCalcInput(p => p+'×')} className={btnOp}>×</button>
+                        <button onClick={() => setCalcInput(p => p+'1')} className={btnNum}>1</button><button onClick={() => setCalcInput(p => p+'2')} className={btnNum}>2</button><button onClick={() => setCalcInput(p => p+'3')} className={btnNum}>3</button><button onClick={() => setCalcInput(p => p+'+')} className={btnOp}>+</button><button onClick={() => setCalcInput(p => p+'-')} className={btnOp}>−</button>
+                        <button onClick={() => setCalcInput("")} className="bg-slate-400 hover:bg-slate-500 text-white font-bold p-2 sm:p-3 rounded shadow-sm transition-colors text-lg flex items-center justify-center">C</button><button onClick={() => setCalcInput(p => p+'0')} className={btnNum}>0</button><button onClick={() => setCalcInput(p => p+';')} className="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold p-2 sm:p-3 rounded shadow-sm transition-colors text-xl flex items-center justify-center">;</button><button onClick={() => setCalcInput(p => p+',')} className={btnNum}>,</button><button onClick={handleEval} className={`${btnOp} !bg-green-600 hover:!bg-green-700`}>=</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==========================================
+        // 3. APP SHELL
+        // ==========================================
+        const AppShell = ({ activePage, children }) => {
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const [showImpressum, setShowImpressum] = useState(false);
+            const [showDatenschutz, setShowDatenschutz] = useState(false);
+
+            const NavLink = ({ href, id, label, icon: Icon }) => (
+                <a href={href} className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors ${activePage === id ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'}`}>
+                    {Icon && <Icon className="w-4 h-4" />}<span className="whitespace-nowrap">{label}</span>
+                </a>
+            );
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-slate-200">
+                        <div className="max-w-[1200px] mx-auto px-2 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-1 sm:gap-4">
+                            <a href="index.html" className="flex items-center hover:opacity-80 transition-opacity shrink-0">
+                                <img src="Logo-sMArTH.png" alt="sMArTHEMATIK Logo" className="h-5 sm:h-8 md:h-10 w-auto object-contain" onError={(e)=>{e.target.style.display='none'}} />
+                            </a>
+                            <a href="https://ms-dachau-sued.de/" target="_blank" rel="noopener noreferrer" className="flex-grow flex justify-center items-center px-1 sm:px-2 hover:opacity-80 transition-opacity min-w-0">
+                                <img src="LogoMSsued2.jpg" alt="Mittelschule Dachau-Süd Logo" className="h-4 sm:h-8 md:h-10 w-auto object-contain shadow-sm rounded-sm" onError={(e)=>{e.target.style.display='none'}} />
+                            </a>
+                            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+                                <nav className="hidden lg:flex items-center gap-1 mr-2">
+                                    <NavLink href="index.html" id="home" label="Startseite" icon={HomeIcon} />
+                                    <NavLink href="wachstum.html" id="wachstum" label="Wachstum" icon={TrendingUp} />
+                                    <NavLink href="halbwertszeit.html" id="zerfall" label="Halbwertszeit" icon={TrendingDown} />
+                                    <NavLink href="bruchgleichungen.html" id="gleichungen" label="Bruchgleichungen" icon={FractionIcon} />
+                                    <NavLink href="kopfrechnen.html" id="kopfrechnen" label="Kopfrechnen" icon={CalculatorOff} />
+                                </nav>
+                                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-1 sm:p-2 text-slate-600 hover:bg-slate-50 rounded-lg">
+                                    {mobileMenuOpen ? <XCircle className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+                                </button>
+                                <img src="cropped-BdB_Logo-1.png" alt="Beratung digitale Bildung Logo" className="h-6 sm:h-10 md:h-12 w-auto object-contain" onError={(e)=>{e.target.style.display='none'}} />
+                            </div>
+                        </div>
+                        {mobileMenuOpen && (
+                            <div className="lg:hidden bg-white border-t border-slate-100 p-4 flex flex-col gap-2 shadow-lg absolute w-full z-50">
+                                <NavLink href="index.html" id="home" label="Startseite" icon={HomeIcon} />
+                                <NavLink href="wachstum.html" id="wachstum" label="Wachstum & Zerfall" icon={TrendingUp} />
+                                <NavLink href="halbwertszeit.html" id="zerfall" label="Halbwertszeit" icon={TrendingDown} />
+                                <NavLink href="bruchgleichungen.html" id="gleichungen" label="Bruchgleichungen" icon={FractionIcon} />
+                                <NavLink href="kopfrechnen.html" id="kopfrechnen" label="Kopfrechnen" icon={CalculatorOff} />
+                            </div>
+                        )}
+                    </header>
+                    <main className="flex-grow">{children}</main>
+                    <footer className="bg-slate-900 text-slate-400 py-10 mt-auto border-t-4 border-indigo-600">
+                        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center space-y-6">
+                            <div>
+                                <h4 className="text-white text-lg font-bold uppercase tracking-wider mb-4">Kontakt & Infos</h4>
+                                <a href="mailto:martin.geiger@ms-dachau-sued.de" className="inline-block px-6 py-2 bg-slate-800 text-slate-200 font-semibold rounded-lg hover:bg-indigo-600 hover:text-white transition-colors shadow-sm text-sm">E-Mail senden</a>
+                            </div>
+                            <div className="w-full border-t border-slate-800 pt-6 mt-2 flex flex-col justify-between items-center text-sm gap-4">
+                                <div className="flex flex-col md:flex-row items-center w-full justify-between gap-4">
+                                    <div>&copy; 2026 - <strong className="text-white">Martin Geiger</strong></div>
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={() => setShowImpressum(true)} className="hover:text-white transition-colors">Impressum</button>
+                                        <span className="text-slate-700">|</span>
+                                        <button onClick={() => setShowDatenschutz(true)} className="hover:text-white transition-colors">Datenschutz</button>
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity grayscale hover:grayscale-0">
+                                    <img src="https://hits.sh/ms-dachau-sued.de/smarthematik.svg?label=Aufrufe&color=4f46e5" alt="Seitenaufrufe Zähler" className="h-5" />
+                                </div>
+                            </div>
+                        </div>
+                    </footer>
+
+                    {/* Modals für Impressum & Datenschutz */}
+                    {showImpressum && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 p-4">
+                            <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative animate-fade-in">
+                                <button onClick={() => setShowImpressum(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><XCircle className="w-6 h-6"/></button>
+                                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><FileText className="w-6 h-6 text-indigo-600"/> Impressum</h2>
+                                <div className="space-y-4 text-slate-700">
+                                    <div><h3 className="font-bold">Angaben gemäß § 5 TMG</h3><p>Martin Geiger<br/>Beratung digitale Bildung<br/>Eduard-Ziegler-Str. 3<br/>85221 Dachau</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {showDatenschutz && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 p-4">
+                            <div className="bg-white rounded-2xl max-w-2xl w-full p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-fade-in">
+                                <button onClick={() => setShowDatenschutz(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><XCircle className="w-6 h-6"/></button>
+                                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Shield className="w-6 h-6 text-indigo-600"/> Datenschutz</h2>
+                                <div className="space-y-4 text-slate-700">
+                                    <div><h3 className="font-bold text-lg">1. Datenschutz auf einen Blick</h3><p>Die folgenden Hinweise geben einen einfachen Überblick...</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // ==========================================
+        // 4. WACHSTUM STRAINER KOMPONENTE
+        // ==========================================
+        const WachstumsTrainer = () => {
+            const [difficulty, setDifficulty] = useState('normal'); 
+            const [problem, setProblem] = useState(null);
+            const [step, setStep] = useState(1); 
+            const [selectedIdentification, setSelectedIdentification] = useState(null);
+            const [inputs, setInputs] = useState({ wn: '', w0: '', q: '', n: '' });
+            const [inputFeedback, setInputFeedback] = useState({});
+            const [options, setOptions] = useState([]);
+            const [selectedOptionId, setSelectedOptionId] = useState(null);
+            const [finalAnswer, setFinalAnswer] = useState('');
+            const [finalFeedback, setFinalFeedback] = useState(null);
+            const [showSolution, setShowSolution] = useState(false);
+            const [streak, setStreak] = useState(() => getStorage('smarth_streak_wachstum', 0));
+            const [loading, setLoading] = useState(true);
+            const [sequenceIndex, setSequenceIndex] = useState(0);
+            
+            const [calcOpen, setCalcOpen] = useState(false);
+            const [calcInput, setCalcInput] = useState("");
+            
+            const [errors, setErrors] = useState(0);
+            const [tipRevealed, setTipRevealed] = useState(false);
+            const [showAnim, setShowAnim] = useState(false);
+
+            useEffect(() => { setStorage('smarth_streak_wachstum', streak); }, [streak]);
+            const advance = (nextStep) => { setStep(nextStep); setErrors(0); setTipRevealed(false); };
+            const triggerError = () => { setErrors(e => e + 1); setStreak(0); };
+            const round = (num, decimals = 2) => Math.round(num * Math.pow(10, decimals)) / Math.pow(10, decimals);
+            const handleInputChange = (id, val) => { setInputs(prev => ({ ...prev, [id]: val.replace('.', ',') })); setInputFeedback(prev => ({ ...prev, [id]: null })); };
+
+            const generateProblem = () => {
+                setCalcOpen(false); setLoading(true); setStep(1); setSelectedIdentification(null); setInputs({ wn: '', w0: '', q: '', n: '' }); setInputFeedback({});
+                setOptions([]); setSelectedOptionId(null); setFinalAnswer(''); setFinalFeedback(null); setShowSolution(false); setErrors(0); setTipRevealed(false);
+
+                const scenarios = ['money', 'population', 'depreciation', 'cooling'];
+                const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+                const sequenceOrder = ['Wn', 'rate', 'W0', 'n'];
+                const type = sequenceOrder[sequenceIndex % sequenceOrder.length];
+                setSequenceIndex(prev => prev + 1);
+
+                let w0, rate, n, q, wn, unit;
+                let isGrowth = (scenario === 'money' || scenario === 'population');
+
+                switch (scenario) {
+                    case 'money': unit = "€"; w0 = Math.floor(Math.random() * 50) * 100 + 500; rate = round(Math.random() * 4 + 0.5, 1); n = Math.floor(Math.random() * 10) + 2; break;
+                    case 'population': unit = "Einwohner"; w0 = Math.floor(Math.random() * 50) * 1000 + 10000; rate = round(Math.random() * 2 + 0.5, 1); n = Math.floor(Math.random() * 15) + 5; break;
+                    case 'depreciation': unit = "€"; w0 = Math.floor(Math.random() * 20) * 1000 + 15000; rate = Math.floor(Math.random() * 10) + 8; n = Math.floor(Math.random() * 6) + 3; break;
+                    case 'cooling': unit = "°C"; w0 = Math.floor(Math.random() * 60) + 40; rate = Math.floor(Math.random() * 15) + 5; n = Math.floor(Math.random() * 10) + 2; break;
+                }
+
+                q = isGrowth ? round(1 + rate / 100, 4) : round(1 - rate / 100, 4);
+                wn = round(w0 * Math.pow(q, n), 2);
+                if (unit === 'Einwohner') wn = Math.round(wn);
+
+                const w0_f = formatNum(w0); const wn_f = formatNum(wn); const rate_f = formatNum(rate);
+
+                let questionText = "";
+                const timeUnit = (scenario === 'cooling') ? 'Minuten' : 'Jahren';
+                const timeAdverb = (scenario === 'cooling') ? 'minütlich' : 'jährlich';
+                const actionWord = isGrowth ? 'wächst/steigt' : 'sinkt/fällt';
+                const valWord = (scenario === 'money' || scenario === 'depreciation') ? 'Wert/Kapital' : (scenario === 'cooling' ? 'Temperatur' : 'Bestand');
+
+                if (difficulty === 'schwer' && timeUnit === 'Jahren') {
+                    let y1 = 2010 + Math.floor(Math.random()*8); let y2 = y1 + n;
+                    switch (type) {
+                        case 'Wn': questionText = `Im Jahr ${y1} lag der ${valWord} bei ${w0_f} ${unit}. Er ${actionWord} ${timeAdverb} um ${rate_f} %. Wie hoch ist er im Jahr ${y2}?`; break;
+                        case 'W0': questionText = `Im Jahr ${y2} liegt der ${valWord} bei ${wn_f} ${unit}, nachdem er seit ${y1} ${timeAdverb} um ${rate_f} % ${actionWord === 'wächst/steigt' ? 'gestiegen' : 'gesunken'} ist. Wie hoch war er ${y1}?`; break;
+                        case 'rate': questionText = `Der ${valWord} hat sich von ${y1} (${w0_f} ${unit}) bis ${y2} (${wn_f} ${unit}) verändert. Wie hoch war die jährliche prozentuale Veränderung?`; break;
+                        case 'n': questionText = `Startwert: ${w0_f} ${unit}. Er ${actionWord} um ${rate_f} % pro Jahr. Nach wie vielen Jahren wird ${wn_f} ${unit} erreicht?`; break; 
+                    }
+                } else {
+                    switch (type) {
+                        case 'Wn': questionText = `Ein ${valWord} von ${w0_f} ${unit} ${actionWord} ${timeAdverb} um ${rate_f} %. Zeitraum: ${n} ${timeUnit}.`; break;
+                        case 'W0': questionText = `Nach ${n} ${timeUnit} ist ein ${valWord} auf ${wn_f} ${unit} ${actionWord === 'wächst/steigt' ? 'gestiegen' : 'gesunken'}. Die Veränderung betrug ${rate_f} %.`; break;
+                        case 'rate': questionText = `Ein ${valWord} hat sich in ${n} ${timeUnit} von ${w0_f} ${unit} auf ${wn_f} ${unit} verändert.`; break;
+                        case 'n': questionText = `Startwert: ${w0_f} ${unit}. Endwert: ${wn_f} ${unit}. Veränderung: ${rate_f} % pro ${timeUnit === 'Minuten' ? 'Minute' : 'Jahr'}.`; break;
+                    }
+                }
+                questionText += " Was musst du berechnen?";
+
+                let explanation = `Gegeben:\n${type !== 'W0' ? `W0 = ${formatNum(w0)} ${unit}\n` : ''}${type !== 'Wn' ? `Wn = ${formatNum(wn)} ${unit}\n` : ''}${type !== 'n' ? `n = ${n}\n` : ''}${type !== 'rate' ? `p = ${formatNum(rate)}%  =>  q = ${formatNum(q)}\n` : ''}\nRechnung:\n`;
+                if (type === 'Wn') explanation += `Wn = ${w0_f} · ${formatNum(q)}^${n} = ${wn_f}`;
+                if (type === 'W0') explanation += `W0 = ${wn_f} / ${formatNum(q)}^${n} = ${w0_f}`;
+                if (type === 'rate') explanation += `q = (${wn_f}/${w0_f})^(1/${n}) = ${formatNum(q)} => p=${rate_f}%`;
+                if (type === 'n') explanation += `n = log(${wn_f}/${w0_f}) / log(${formatNum(q)}) = ${n}`;
+
+                setProblem({ type, scenario, text: questionText, w0, wn, rate, q, n, unit, solution: type === 'rate' ? rate : (type === 'n' ? n : (type === 'W0' ? w0 : wn)), explanation });
+                
+                let opts = [];
+                switch (type) {
+                    case 'Wn': opts = [{ id: '1', label: 'Formel ist bereits aufgelöst. Einfach ausrechnen.', isCorrect: true }, { id: '2', label: <span>Teile durch <VarW0/></span>, isCorrect: false }, { id: '3', label: <span>Ziehe die {n}-te Wurzel</span>, isCorrect: false }]; break;
+                    case 'W0': opts = [{ id: '1', label: <span>Teile durch <VarQpowN/></span>, isCorrect: true }, { id: '2', label: <span>Multipliziere mit <VarQpowN/></span>, isCorrect: false }, { id: '3', label: <span>Subtrahiere <VarQpowN/></span>, isCorrect: false }]; break;
+                    case 'rate': opts = [{ id: '1', label: <span>1. Teile durch <VarW0/> <br/> 2. Ziehe die {n}-te Wurzel</span>, isCorrect: true }, { id: '2', label: <span>1. Teile durch <VarW0/> <br/> 2. Teile durch {n}</span>, isCorrect: false }, { id: '3', label: <span>1. Teile durch {n} <br/> 2. Ziehe die Wurzel</span>, isCorrect: false }]; break;
+                    case 'n': opts = [{ id: '1', label: <span>1. Teile durch <VarW0/> <br/> 2. Wende den Logarithmus an</span>, isCorrect: true }, { id: '2', label: <span>1. Teile durch <VarQ/> <br/> 2. Wende den Logarithmus an</span>, isCorrect: false }, { id: '3', label: <span>1. Teile durch <VarW0/> <br/> 2. Ziehe die {n}-te Wurzel</span>, isCorrect: false }]; break;
+                }
+                setOptions(opts.sort(() => Math.random() - 0.5)); setLoading(false);
+            };
+
+            useEffect(() => { generateProblem(); }, [difficulty]);
+
+            const handleDifficultyChange = (newDiff) => { if (difficulty === newDiff) generateProblem(); else setDifficulty(newDiff); };
+
+            const handleIdentify = (selected) => {
+                if (step > 1 || !problem) return;
+                setSelectedIdentification(selected);
+                if (selected === problem.type) { setTimeout(() => advance(2), 600); } else { triggerError(); }
+            };
+
+            const checkFormulaInputs = () => {
+                if (!problem) return;
+                let allCorrect = true, feedback = {};
+                const checkVal = (input, target) => { const val = parseFloat(input.replace(',', '.')); if (isNaN(val)) return false; return Math.abs(val - target) < (Math.max(target * 0.01, 0.005)); };
+                if (problem.type !== 'Wn' && !checkVal(inputs.wn, problem.wn)) { feedback.wn = 'incorrect'; allCorrect = false; } else feedback.wn = 'correct';
+                if (problem.type !== 'W0' && !checkVal(inputs.w0, problem.w0)) { feedback.w0 = 'incorrect'; allCorrect = false; } else feedback.w0 = 'correct';
+                if (problem.type !== 'rate' && !checkVal(inputs.q, problem.q)) { feedback.q = 'incorrect'; allCorrect = false; } else feedback.q = 'correct';
+                if (problem.type !== 'n' && !checkVal(inputs.n, problem.n)) { feedback.n = 'incorrect'; allCorrect = false; } else feedback.n = 'correct';
+                setInputFeedback(feedback); 
+                if (allCorrect) advance(3); else triggerError();
+            };
+
+            const handleOptionSelect = (opt) => {
+                if (step > 3) return;
+                setSelectedOptionId(opt.id);
+                if (opt.isCorrect) { setTimeout(() => advance(4), 600); } else { triggerError(); }
+            };
+
+            const checkFinalResult = () => {
+                if (!problem) return;
+                const val = parseFloat(finalAnswer.replace(',', '.')); if (isNaN(val)) return;
+                const tolerance = problem.type === 'n' ? 0.5 : (problem.solution * 0.01);
+                if (Math.abs(val - problem.solution) <= tolerance || (problem.type === 'n' && Math.round(val) === problem.solution)) {
+                    setFinalFeedback('correct'); 
+                    const newStreak = streak + 1;
+                    setStreak(newStreak);
+                    if (newStreak > 0 && newStreak % 3 === 0) triggerCelebration(setShowAnim);
+                    setShowSolution(true); advance(5);
+                } else { setFinalFeedback('incorrect'); triggerError(); }
+            };
+
+            return (
+                <div className="page-transition max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    {showAnim && <CelebrationOverlay />}
+                    <header className="bg-emerald-700 text-emerald-50 shadow-md p-6 rounded-xl mb-6">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center space-x-3">
+                                <TrendingUp size={32} />
+                                <div><h1 className="text-2xl font-bold tracking-tight text-white flex items-center">Wachstum & Zerfall <span className="hidden sm:inline text-emerald-200 text-lg font-normal border-l-2 border-emerald-400 pl-2 ml-2">10. Klasse</span></h1></div>
+                            </div>
+                            <div className="bg-emerald-800 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm flex items-center">
+                                <TrendingUp className="w-4 h-4 mr-2 text-emerald-300" /> Streak: {streak}
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6 bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+                        <span className="font-bold text-slate-700">Neue Aufgabe generieren:</span>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleDifficultyChange('normal')} className={`px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${difficulty === 'normal' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>Normal</button>
+                            <button onClick={() => handleDifficultyChange('schwer')} className={`px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${difficulty === 'schwer' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>Schwer</button>
+                        </div>
+                    </div>
+
+                    <main className="space-y-6 relative">
+                        <div className="sticky top-20 z-40 flex justify-center w-full my-4 pointer-events-none">
+                            <button onClick={() => setCalcOpen(!calcOpen)} className="pointer-events-auto bg-slate-800 hover:bg-slate-900 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 border-4 border-slate-700 hover:scale-105 hover:border-emerald-400">
+                                {calcOpen ? <XCircle className="w-7 h-7" /> : <Calculator className="w-7 h-7" />}
+                            </button>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="bg-emerald-50 px-6 py-3 border-b border-emerald-200 flex justify-between items-center">
+                                <h2 className="font-semibold text-emerald-900 flex items-center"><BookOpen size={18} className="mr-2"/> Sachaufgabe</h2>
+                            </div>
+                            <div className="p-6 bg-white min-h-[100px] flex items-center justify-center text-center">
+                                {loading ? <RefreshCw className="w-8 h-8 animate-spin text-emerald-500"/> : <p className="text-xl font-medium leading-relaxed">{problem?.text}</p>}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <StepCard title="1. Was ist gesucht?" stepNum={1} currentStep={step} theme="emerald">
+                                {step === 1 && calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {[{ type: 'Wn', label: <VarWn/>, desc: "Endwert" }, { type: 'W0', label: <VarW0/>, desc: "Anfangswert" }, { type: 'rate', label: <VarQ/>, desc: "Faktor" }, { type: 'n', label: <VarN/>, desc: "Laufzeit" }].map((item) => (
+                                        <button key={item.type} onClick={() => handleIdentify(item.type)} disabled={step > 1} className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${selectedIdentification === item.type ? (item.type === problem?.type ? 'border-green-500 bg-green-50 text-green-900 font-bold' : 'border-red-400 bg-red-50 text-red-900') : 'border-slate-200 hover:border-emerald-400 bg-white'}`}>
+                                            <span className="text-xl font-serif font-bold">{item.label}</span><span className="text-[10px] sm:text-xs uppercase font-semibold text-slate-500">{item.desc}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                {step === 1 && <TipBox errors={errors} revealed={tipRevealed} setRevealed={setTipRevealed} text="Lies genau: Frag nach dem Start (W0), dem Ende (Wn) oder der Dauer (n)?" />}
+                                {step > 1 && <SuccessMark text="Richtig identifiziert!" />}
+                            </StepCard>
+
+                            {step >= 2 && (
+                                <StepCard title="2. Werte in die Formel einsetzen" stepNum={2} currentStep={step} theme="emerald">
+                                    {step === 2 && calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                    <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-slate-50 p-4 sm:p-6 rounded-xl border border-dashed border-slate-300">
+                                        <FormulaInput id="wn" label={<VarWn/>} value={inputs.wn} theme="emerald" isUnknown={problem.type === 'Wn'} status={inputFeedback.wn} disabled={step > 2 || inputFeedback.wn === 'correct'} onChange={handleInputChange} />
+                                        <span className="text-2xl text-slate-400 font-bold mt-6">=</span>
+                                        <FormulaInput id="w0" label={<VarW0/>} value={inputs.w0} theme="emerald" isUnknown={problem.type === 'W0'} status={inputFeedback.w0} disabled={step > 2 || inputFeedback.w0 === 'correct'} onChange={handleInputChange} />
+                                        <span className="text-2xl text-slate-400 font-bold mt-6">·</span>
+                                        <FormulaInput id="q" label={<VarQ/>} value={inputs.q} theme="emerald" isUnknown={problem.type === 'rate'} status={inputFeedback.q} disabled={step > 2 || inputFeedback.q === 'correct'} onChange={handleInputChange} />
+                                        <div className="relative -top-6"><FormulaInput id="n" label={<span className="text-sm"><VarN/></span>} value={inputs.n} theme="emerald" isUnknown={problem.type === 'n'} status={inputFeedback.n} disabled={step > 2 || inputFeedback.n === 'correct'} onChange={handleInputChange} /></div>
+                                    </div>
+                                    {step === 2 && <div className="mt-4 flex justify-between items-center"><TipBox errors={errors} revealed={tipRevealed} setRevealed={setTipRevealed} text={difficulty==='schwer'?"n ist die Differenz der Jahre. Bei Abnahme ist q < 1 (z.B. 1 - 0.05).":"q ist (1 + p/100) bei Zunahme und (1 - p/100) bei Abnahme."} /><SubmitBtn onClick={checkFormulaInputs} theme="emerald" /></div>}
+                                    {step > 2 && <SuccessMark text="Alle Werte richtig eingesetzt!" />}
+                                </StepCard>
+                            )}
+
+                            {step >= 3 && (
+                                <StepCard title="3. Gleichung umformen" stepNum={3} currentStep={step} theme="emerald">
+                                    {step === 3 && calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                    <div className="flex justify-center items-center gap-2 text-xl md:text-2xl font-mono bg-slate-100 py-4 px-2 rounded-lg mb-6 text-slate-700">
+                                        <span>{problem.type === 'Wn' ? <span className="text-emerald-700 font-bold">Wn</span> : formatNum(problem.wn)} = {problem.type === 'W0' ? <span className="text-emerald-700 font-bold">W0</span> : formatNum(problem.w0)} · {problem.type === 'rate' ? <span className="text-emerald-700 font-bold">q</span> : formatNum(problem.q)}<sup>{problem.type === 'n' ? <span className="text-emerald-700 font-bold">n</span> : problem.n}</sup></span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        {options.map((opt) => (
+                                            <button key={opt.id} onClick={() => handleOptionSelect(opt)} disabled={step > 3} className={`p-4 rounded-xl border-2 text-sm md:text-base font-medium flex flex-col items-center justify-center gap-2 ${selectedOptionId === opt.id ? (opt.isCorrect ? 'border-green-500 bg-green-50 text-green-900 font-bold' : 'border-red-400 bg-red-50 text-red-900') : 'border-slate-200 hover:border-emerald-400'}`}>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {step === 3 && <TipBox errors={errors} revealed={tipRevealed} setRevealed={setTipRevealed} text="Um W0 freizustellen: teile durch q^n. Für n: teile durch W0 und nutze den Logarithmus." />}
+                                    {step > 3 && <SuccessMark text="Richtig umgeformt!" />}
+                                </StepCard>
+                            )}
+
+                            {step >= 4 && (
+                                <StepCard title="4. Ergebnis berechnen" stepNum={4} currentStep={step} theme="emerald">
+                                    {step === 4 && calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                    <div className="flex flex-col sm:flex-row gap-4 items-center w-full">
+                                        <div className="relative flex-grow max-w-sm w-full">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-serif text-slate-400 italic">{problem.type === 'Wn' ? <VarWn/> : problem.type === 'W0' ? <VarW0/> : problem.type === 'rate' ? 'p' : <VarN/>} =</span>
+                                            <input type="text" value={finalAnswer} onChange={(e) => setFinalAnswer(e.target.value.replace('.', ','))} disabled={step === 5} placeholder="Rechner nutzen..." className={`pl-16 pr-12 py-3 w-full rounded-lg border-2 text-lg outline-none transition-colors shadow-sm ${finalFeedback === 'correct' ? 'border-green-500 bg-green-50 text-green-900 font-bold' : finalFeedback === 'incorrect' ? 'border-red-400 bg-red-50' : 'border-slate-300 focus:border-emerald-500'}`} />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">{problem.type === 'rate' ? '%' : problem.unit}</span>
+                                        </div>
+                                        {step === 4 && <SubmitBtn onClick={checkFinalResult} theme="emerald" />}
+                                    </div>
+                                    {step === 4 && <TipBox errors={errors} revealed={tipRevealed} setRevealed={setTipRevealed} text="Achte beim Taschenrechner auf Kommas und Klammern (z.B. log(Endwert/Startwert))." />}
+                                    {step > 4 && <SuccessMark text="Perfekt gerechnet!" />}
+                                </StepCard>
+                            )}
+
+                            {step === 5 && (
+                                <div className="bg-green-50 border-2 border-green-500 p-8 rounded-xl shadow-sm text-center animate-fade-in mt-6">
+                                    {calcOpen && <CalculatorPanel calcInput={calcInput} setCalcInput={setCalcInput} />}
+                                    <h3 className="text-3xl font-bold text-green-800 mb-3">Klasse gemacht! 🎉</h3>
+                                    <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                                        <button onClick={() => setShowSolution(!showSolution)} className="text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium shadow-sm"><BookOpen className="w-4 h-4"/> Lösungsweg</button>
+                                        <button onClick={generateProblem} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-lg font-bold shadow-md flex items-center justify-center gap-2"><RefreshCw className="w-5 h-5" /> Nächste Aufgabe</button>
+                                    </div>
+                                    {showSolution && <div className="w-full bg-white p-6 rounded-xl border border-green-200 mt-6 text-sm font-mono whitespace-pre-line text-slate-700 text-left shadow-inner">{problem.explanation}</div>}
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const App = () => <AppShell activePage="wachstum"><WachstumsTrainer /></AppShell>;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
