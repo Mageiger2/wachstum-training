@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sMArTHEMATIK - Halbwertszeit</title>
+    <title>sMArTHEMATIK - Halbwertszeiten</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -41,12 +41,14 @@
 
         const AppShell = ({ activePage, children }) => {
             const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+            
+            // Angepasste Navigation mit deinen exakten Dateinamen
             const navItems = [
-                { id: 'home', label: 'Startseite', icon: Icons.Home, href: 'StartseiteEinzeln.html' },
-                { id: 'wachstum', label: 'Wachstum', icon: Icons.TrendingUp, href: 'wachstumEinzeln.html' },
-                { id: 'halbwertszeit', label: 'Halbwertszeit', icon: Icons.Activity, href: 'halbwertszeitEinzeln.html' },
-                { id: 'bruchgleichungen', label: 'Bruchgleichungen', icon: Icons.DivideSquare, href: 'bruchgleichungenEinzeln.html' },
-                { id: 'kopfrechnen', label: 'Kopfrechnen', icon: Icons.CalculatorOff, href: 'kopfrechnenEinzeln.html' }
+                { id: 'home', label: 'Startseite', icon: Icons.Home, href: 'Index.html' },
+                { id: 'wachstum', label: 'Wachstum', icon: Icons.TrendingUp, href: 'wachstum.html' },
+                { id: 'halbwertszeit', label: 'Halbwertszeiten', icon: Icons.Activity, href: 'Halbwertszeiten.html' },
+                { id: 'bruchgleichungen', label: 'Bruchgleichungen', icon: Icons.DivideSquare, href: 'Bruchgleichungen.html' },
+                { id: 'kopfrechnen', label: 'Kopfrechnen', icon: Icons.CalculatorOff, href: 'Kopfrechnen.html' }
             ];
 
             return (
@@ -138,7 +140,7 @@
                         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 bg-indigo-100">
                             <Icons.Activity className="w-8 h-8" />
                         </div>
-                        <h2 className="text-3xl font-extrabold text-slate-800 mb-4">Halbwertszeit</h2>
+                        <h2 className="text-3xl font-extrabold text-slate-800 mb-4">Halbwertszeiten</h2>
                         <p className="text-slate-600 max-w-2xl">Berechne die verbleibende Menge von Präparaten oder Isotopen anhand ihrer Halbwertszeit. Nutze die Wachstums- bzw. Zerfallsformel.</p>
                     </div>
 
