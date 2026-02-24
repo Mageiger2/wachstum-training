@@ -41,12 +41,14 @@
 
         const AppShell = ({ activePage, children }) => {
             const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+            
+            // Angepasste Navigation
             const navItems = [
-                { id: 'home', label: 'Startseite', icon: Icons.Home, href: 'StartseiteEinzeln.html' },
-                { id: 'wachstum', label: 'Wachstum', icon: Icons.TrendingUp, href: 'wachstumEinzeln.html' },
-                { id: 'halbwertszeit', label: 'Halbwertszeit', icon: Icons.Activity, href: 'halbwertszeitEinzeln.html' },
-                { id: 'bruchgleichungen', label: 'Bruchgleichungen', icon: Icons.DivideSquare, href: 'bruchgleichungenEinzeln.html' },
-                { id: 'kopfrechnen', label: 'Kopfrechnen', icon: Icons.CalculatorOff, href: 'kopfrechnenEinzeln.html' }
+                { id: 'home', label: 'Startseite', icon: Icons.Home, href: 'Index.html' },
+                { id: 'wachstum', label: 'Wachstum', icon: Icons.TrendingUp, href: 'wachstum.html' },
+                { id: 'halbwertszeit', label: 'Halbwertszeiten', icon: Icons.Activity, href: 'Halbwertszeiten.html' },
+                { id: 'bruchgleichungen', label: 'Bruchgleichungen', icon: Icons.DivideSquare, href: 'Bruchgleichungen.html' },
+                { id: 'kopfrechnen', label: 'Kopfrechnen', icon: Icons.CalculatorOff, href: 'Kopfrechnen.html' }
             ];
 
             return (
