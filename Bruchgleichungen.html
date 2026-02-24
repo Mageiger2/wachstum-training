@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="de" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sMArTHEMATIK - Bruchgleichungen</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        .page-transition { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+    <div id="root"></div>
+    <script type="text/babel">
+        // Icons
+        const Icons = {
+            Menu: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>,
+            X: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+            Home: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
+            TrendingUp: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+            Activity: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+            DivideSquare: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-4-4v.01M12 16.01V16m0 4a9 9 0 110-18 9 9 0 010 18z" /></svg>,
+            CalculatorOff: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h6m-6 4h6M4 4l16 16m-2-2H6a2 2 0 01-2-2V6c0-.55.22-1.05.59-1.41" /></svg>,
+            BookOpen: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
+            RefreshCw: (props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+        };
+
+        const AppShell = ({ activePage, children }) => {
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+            const navItems = [
+                { id: 'home', label: 'Startseite', icon: Icons.Home, href: 'StartseiteEinzeln.html' },
+                { id: 'wachstum', label: 'Wachstum', icon: Icons.TrendingUp, href: 'wachstumEinzeln.html' },
+                { id: 'halbwertszeit', label: 'Halbwertszeit', icon: Icons.Activity, href: 'halbwertszeitEinzeln.html' },
+                { id: 'bruchgleichungen', label: 'Bruchgleichungen', icon: Icons.DivideSquare, href: 'bruchgleichungenEinzeln.html' },
+                { id: 'kopfrechnen', label: 'Kopfrechnen', icon: Icons.CalculatorOff, href: 'kopfrechnenEinzeln.html' }
+            ];
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-800">
+                    <div className="md:hidden bg-indigo-700 text-white p-4 flex justify-between items-center shadow-md z-20 relative">
+                        <div className="font-bold text-xl tracking-tight">sMArTHEMATIK</div>
+                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 hover:bg-indigo-600 rounded-lg transition-colors">
+                            {isMobileMenuOpen ? <Icons.X className="w-6 h-6" /> : <Icons.Menu className="w-6 h-6" />}
+                        </button>
+                    </div>
+
+                    <div className={`fixed inset-y-0 left-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0 transition duration-300 ease-in-out bg-white w-64 border-r border-slate-200 shadow-xl md:shadow-none z-10 flex flex-col`}>
+                        <div className="p-6 hidden md:block">
+                            <div className="font-extrabold text-2xl text-indigo-700 tracking-tight">sMArTHEMATIK</div>
+                            <div className="text-xs text-slate-500 mt-1 font-medium uppercase tracking-wider">MSA Trainer</div>
+                        </div>
+                        <nav className="flex-1 px-4 py-6 md:py-0 space-y-2 overflow-y-auto">
+                            {navItems.map(item => {
+                                const Icon = item.icon;
+                                const isActive = activePage === item.id;
+                                return (
+                                    <a key={item.id} href={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-50 text-amber-700 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-amber-600'}`}>
+                                        <Icon className={`w-5 h-5 ${isActive ? 'text-amber-600' : 'text-slate-400'}`} />
+                                        {item.label}
+                                    </a>
+                                );
+                            })}
+                        </nav>
+                    </div>
+
+                    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+                        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50">
+                            <div className="max-w-4xl mx-auto">
+                                {children}
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        const BruchgleichungenTrainer = () => {
+            const [problem, setProblem] = React.useState(null);
+            const [calcInput, setCalcInput] = React.useState('');
+            const [isCorrect, setIsCorrect] = React.useState(false);
+            const [showSolution, setShowSolution] = React.useState(false);
+            const [errorMsg, setErrorMsg] = React.useState('');
+
+            const generateProblem = () => {
+                const x = Math.floor(Math.random() * 9) + 2; // 2 bis 10
+                const b = Math.floor(Math.random() * 9) + 1; // 1 bis 9
+                const c = Math.floor(Math.random() * 4) + 2; // 2 bis 5
+                const a = c * (x + b);
+                
+                return {
+                    question: `Löse die folgende Bruchgleichung nach x auf.\nDie Definitionsmenge ist D = ℚ \\ {-${b}}\n\n ${a} / (x + ${b})  =  ${c}`,
+                    answer: x.toString(),
+                    explanation: `1. Multipliziere beide Seiten mit dem Nenner (x + ${b}):\n   ${a} = ${c} · (x + ${b})\n\n2. Klammer auf der rechten Seite ausmultiplizieren:\n   ${a} = ${c}x + ${c*b}\n\n3. Subtrahiere ${c*b} auf beiden Seiten:\n   ${a - c*b} = ${c}x\n\n4. Teile auf beiden Seiten durch ${c}:\n   x = ${x}`
+                };
+            };
+
+            React.useEffect(() => { setProblem(generateProblem()); }, []);
+
+            const checkAnswer = () => {
+                if (calcInput.trim().replace(',', '.') === problem.answer) {
+                    setIsCorrect(true);
+                    setShowSolution(false);
+                    setErrorMsg('');
+                    if (window.confetti) window.confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                } else {
+                    setErrorMsg("Leider nicht ganz richtig. Denk an die Äquivalenzumformung!");
+                }
+            };
+
+            const handleNext = () => {
+                setProblem(generateProblem());
+                setCalcInput('');
+                setIsCorrect(false);
+                setShowSolution(false);
+                setErrorMsg('');
+            };
+
+            if (!problem) return null;
+
+            return (
+                <div className="animate-fade-in w-full page-transition">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-10 mb-8 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-amber-600 bg-amber-100">
+                            <Icons.DivideSquare className="w-8 h-8" />
+                        </div>
+                        <h2 className="text-3xl font-extrabold text-slate-800 mb-4">Bruchgleichungen</h2>
+                        <p className="text-slate-600 max-w-2xl">Löse einfache Gleichungen mit x im Nenner. Multipliziere dafür mit dem Hauptnenner, um den Bruch aufzulösen.</p>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden relative">
+                        <div className="h-2 w-full bg-amber-400"></div>
+                        <div className="p-8">
+                            <div className="bg-amber-50/50 p-6 rounded-xl border border-amber-100 mb-8 whitespace-pre-line text-lg font-medium text-slate-800 text-center font-mono shadow-inner">
+                                {problem.question}
+                            </div>
+
+                            {!isCorrect ? (
+                                <div className="flex flex-col gap-4 max-w-lg mx-auto">
+                                    {errorMsg && <div className="text-red-600 bg-red-50 p-3 rounded-lg text-center font-medium border border-red-200 animate-fade-in">{errorMsg}</div>}
+                                    <div className="flex flex-col md:flex-row gap-4">
+                                        <div className="flex-1 flex items-center gap-3">
+                                            <span className="text-xl font-bold text-slate-600">x =</span>
+                                            <input 
+                                                type="text" 
+                                                value={calcInput}
+                                                onChange={(e) => setCalcInput(e.target.value)}
+                                                placeholder="..."
+                                                className="flex-1 text-center text-xl p-4 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 outline-none transition-all font-mono"
+                                                onKeyDown={(e) => e.key === 'Enter' && checkAnswer()}
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={checkAnswer}
+                                            className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 px-8 rounded-xl shadow-md transition-colors w-full md:w-auto"
+                                        >
+                                            Prüfen
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center animate-fade-in bg-green-50 p-8 rounded-2xl border border-green-200">
+                                    <h3 className="text-3xl font-bold text-green-800 mb-3">Richtig gelöst! 🎉</h3>
+                                    <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                                        <button onClick={() => setShowSolution(!showSolution)} className="text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium shadow-sm">
+                                            <Icons.BookOpen className="w-4 h-4"/> Lösungsweg
+                                        </button>
+                                        <button onClick={handleNext} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-lg font-bold shadow-md flex items-center justify-center gap-2">
+                                            <Icons.RefreshCw className="w-5 h-5" /> Nächste Aufgabe
+                                        </button>
+                                    </div>
+                                    {showSolution && (
+                                        <div className="w-full bg-white p-6 rounded-xl border border-green-200 mt-6 text-sm font-mono whitespace-pre-line text-slate-700 text-left shadow-inner">
+                                            {problem.explanation}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => <AppShell activePage="bruchgleichungen"><BruchgleichungenTrainer /></AppShell>;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
